@@ -1,0 +1,63 @@
+/* Định kiểu cho container bao quanh form */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    height: 100vh; /* Chiều cao 100% của cửa sổ trình duyệt */
+    background: linear-gradient(120deg,#3ca7ee,#9b408f);
+}
+
+/* Định kiểu cho form */
+.login-form {
+    width: 400px; /* Chiều rộng tối đa của form */
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #ffffff; /* Màu nền của form */
+}
+
+/* Định kiểu cho tiêu đề */
+.login-title {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Định kiểu cho nhãn và ô input */
+.login-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.login-form input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+/* Định kiểu cho nút login */
+.login-form button {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.login-form button:hover {
+    background-color: #0056b3;
+}
+
+/* Định kiểu cho thông báo lỗi */
+.login-error {
+    color: red;
+    text-align: center;
+}
