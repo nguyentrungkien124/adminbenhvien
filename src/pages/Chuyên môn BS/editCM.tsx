@@ -24,53 +24,52 @@ const formItemLayout = {
 };
 
 
-const EditKH: React.FC = () => {
+const EditCM: React.FC = () => {
 
-  const { maKH } = useParams()
+  const { id } = useParams()
   const [form] = Form.useForm()
-  const [khachhang, setKhachHang] = useState<MaKH>();
+  const [chuyenmon, setchuyenmon] = useState<chuyenmon>();
   const navigate = useNavigate();
 
-  interface MaKH {
-    maKH: number; // Mã khách hàng là một số nguyên
-    tenKH: string; // Tên khách hàng là một chuỗi
-    diaChi: string; // Địa chỉ là một chuỗi
-    sdt: string; // Số điện thoại là một chuỗi
+  interface chuyenmon {
+    id: number; // Mã khách hàng là một số nguyên
+    ten_chuyen_mon: string; // Tên khách hàng là một chuỗi
+  
   }
 
 
   useEffect(() => {
     async function loadData() {
-      const res = await axios.get(`https://localhost:44381/api/Khach/get_by_id?id=${maKH}`)
-      setKhachHang(res.data);
+      const res = await axios.get(`http://localhost:9999/api/chuyenmon/getchuyenmonbyid/${id}`)
+      setchuyenmon(res.data);
+      
+      form.setFieldsValue(res.data[0]);
     }
 
     loadData();
-  }, [maKH]);
+  }, [id,form]);
 
-  form.setFieldsValue({ ...khachhang })
+  form.setFieldsValue({ ...chuyenmon })
 
-  const Update = async (MaKH: MaKH) => {
-    let khachhang = {
-      "maKH": MaKH.maKH,
-      "tenKH": MaKH.tenKH,
-      "diaChi": MaKH.diaChi,
-      "sdt": MaKH.sdt
+  const Update = async (MaCM: chuyenmon) => {
+    let chuyenmon = {
+      "id": MaCM.id,
+      "ten_chuyen_mon": MaCM.ten_chuyen_mon
     };
-    console.log(khachhang);
+    console.log(chuyenmon);
     try {
-      const response = await axios.post(
-        "https://localhost:44381/api/Khach/Update_KH", khachhang
+      const response = await axios.put(
+        "http://localhost:9999/api/chuyenmon/suachuyenmon", chuyenmon
       );
       if (response) {
         // Hiển thị thông báo thành công
         notification.success({
           message: 'Thành công',
-          description: 'Đã sửa nhà phân phối thành công',
+          description: 'Đã sửa chuyên môn thành công',
           placement: 'top',
           duration: 2 // Thông báo tự động biến mất sau 3 giây
         });
-        navigate('/indexKH');
+        navigate('/indexCM');
       }
     } catch (error) {
       console.error("Lỗi data:", error);
@@ -80,44 +79,25 @@ const EditKH: React.FC = () => {
   }
   return (
     <div>
-      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Sửa khách hàng</h2>
+      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Sửa chuyên môn</h2>
       <Form {...formItemLayout}
       form={form}
       onFinish={Update}
       variant="filled" style={{ maxWidth: 600 ,marginTop:20 }}>
           <Form.Item
-        label="Mã khách hàng"
-        name='maKH'
+        label="Mã chuyên môn"
+        name='id'
         rules={[{ required: true, message: 'Please input!' }]}
       >
         <Mentions />
       </Form.Item>
       <Form.Item
         label="Tên khách hàng"
-        name='tenKH'
+        name='ten_chuyen_mon'
         rules={[{ required: true, message: 'Please input!' }]}
       >
         <Mentions />
       </Form.Item>
-
-
-      <Form.Item
-        label="Địa chỉ"
-        name='diaChi'
-        rules={[{ required: true, message: 'Please input!' }]}
-      >
-        <Mentions />
-      </Form.Item>
-
-
-      <Form.Item
-        label="Số điện thoại"
-        name='sdt'
-        rules={[{ required: true, message: 'Please input!' }]}
-      >
-        <Mentions />
-      </Form.Item>
-
 
       <Form.Item wrapperCol={{ offset: 6, span: 16 }}>
         <Button type="primary" htmlType="submit">
@@ -132,4 +112,4 @@ const EditKH: React.FC = () => {
 
 };
 
-export default () => <EditKH />;
+export default () => <EditCM />;

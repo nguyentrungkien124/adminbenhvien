@@ -176,7 +176,7 @@ const Thongke: React.FC = () => {
 
         <Col span={6}>
           <Card style={{ backgroundColor: '#FFCE56' }}>
-            <Statistic title="Số lượng sản phẩm bán" value={thongKeData.soLuongSP} />
+            <Statistic title="Số lượng gói khám khám nhiều nhất" value={thongKeData.soLuongSP} />
           </Card>
         </Col>
         <Col span={6}>
@@ -189,16 +189,16 @@ const Thongke: React.FC = () => {
       <Row gutter={16} style={{ marginTop: 16 }}>
         {/* Thay thế biểu đồ cột bằng biểu đồ tròn cho sản phẩm bán chạy */}
         <Col span={13}>
-          <Card title="Biểu đồ tròn sản phẩm bán chạy">
+          <Card title="Biểu đồ tròn doanh thu">
             <Pie data={pieDataSPBanChay} />
           </Card>
         </Col>
 
         {/* Thêm phần hiển thị danh sách sản phẩm bán chạy */}
         <Col span={11} >
-          <Card title="Sản phẩm bán chạy">
-            <Table dataSource={sanPhamBanChay} rowKey="maSanPham">
-              <Column title="Tên sản phẩm" dataIndex="tenSanPham" key="tenSanPham" />
+          <Card title="Hiển thị gói khám nhiều nhất ">
+            <Table dataSource={sanPhamBanChay} rowKey="id">
+              <Column title="Tên gói khám" dataIndex="tenSanPham" key="tenSanPham" />
               <Column title="Số lượng bán" dataIndex="tongSoLuong" key="tongSoLuong" />
               <Column title="Giá" dataIndex="gia" key="gia" />
             </Table>

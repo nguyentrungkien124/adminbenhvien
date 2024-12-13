@@ -17,24 +17,22 @@ const formItemLayout = {
   },
 };
 
-const CreateKH: React.FC = () => {
-   const CreateKH = async (values: any) => {
-    let khachhang ={
-      "maKH": 0,
-      "tenKH": values.tenKH,
-      "diaChi": values.diaChi,
-      "sdt": values.sdt
+const CreateCM: React.FC = () => {
+   const CreateCM = async (values: any) => {
+    let chuyenmon ={
+      "id": values.id,
+      "ten_chuyen_mon": values.ten_chuyen_mon
 
     }
     try{
       const response = await axios.post(
-        "https://localhost:44381/api/Khach/Create",khachhang
+        "http://localhost:9999/api/chuyenmon/themchuyenmon",chuyenmon
       );
       if (response) {
         // Hiển thị thông báo thành công
         notification.success({
           message: 'Thành công',
-          description: 'Đã thêm nhà phân phối thành công',
+          description: 'Đã thêm chuyên môn thành công',
           placement: 'topRight',
           duration: 3 // Thông báo tự động biến mất sau 3 giây
         });
@@ -49,37 +47,20 @@ const CreateKH: React.FC = () => {
 
   return (
     <div>
-      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Thêm khách hàng</h2>
+      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Thêm chuyên môn bác sĩ</h2>
       <Form {...formItemLayout} variant="filled"
-    onFinish={CreateKH}
+    onFinish={CreateCM}
      style={{ maxWidth: 600,marginTop:20}}
      >
 
       <Form.Item
-        label="Tên khách hàng"
-        name={['tenKH']}
+        label="Tên chuyên môn"
+        name={['ten_chuyen_mon']}
         rules={[{ required: true, message: 'Please input!' }]}
       >
         <Mentions />
       </Form.Item>
 
-
-      <Form.Item
-        label="Địa chỉ"
-        name={['diaChi']}
-        rules={[{ required: true, message: 'Please input!' }]}
-      >
-        <Mentions />
-      </Form.Item>
-
-
-      <Form.Item
-        label="Số điện thoại"
-        name={['sdt']}
-        rules={[{ required: true, message: 'Please input!' }]}
-      >
-        <Mentions />
-      </Form.Item>
 
 
       <Form.Item wrapperCol={{ offset: 6, span: 16 }}>
@@ -95,4 +76,4 @@ const CreateKH: React.FC = () => {
 
 
 
-export default () => <CreateKH />;
+export default () => <CreateCM />;

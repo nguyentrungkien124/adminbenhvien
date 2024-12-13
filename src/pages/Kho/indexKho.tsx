@@ -4,10 +4,11 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined } from '@ant-design/icons';
 import numeral from 'numeral';
+import { EyeOutlined } from '@ant-design/icons';
 
 const { Column } = Table;
 
-const IndexHDN: React.FC = () => {
+const IndexKho: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
   const [nhaPhanPhois, setNhaPhanPhois] = useState<any[]>([]);
   const formatCurrency = (value: number) => numeral(value).format('0,0 VNĐ');
@@ -35,14 +36,14 @@ const IndexHDN: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const response = await axios.post(
-        "https://localhost:44381/api/HoaDonNhap/HoaDonNhap_Search",
-        {
-          page: "1",
-          pageSize: "10",
-        }
+      const response = await axios.get(
+        "http://localhost:9999/api/kho/getall",
+        // {
+        //   page: "1",
+        //   pageSize: "10",
+        // }
       );
-      const modifiedData = response.data.data.map((item: any, index: any) => ({
+      const modifiedData = response.data.map((item: any, index: any) => ({
         ...item,
         index: index + 1,
       }));
@@ -55,10 +56,10 @@ const IndexHDN: React.FC = () => {
   const handleDelete = async (record: any) => {
     const shouldDelete = window.confirm('Bạn có chắc chắn muốn xóa ');
     if (shouldDelete) {
-      const maHoaDon = record.maHoaDon;
+      const kho_id = record.kho_id;
       try {
         await axios.delete(
-          'https://localhost:44381/api/HoaDonNhap/HoaDonNhap_Delete?id=' + maHoaDon,
+          'http://localhost:9999/api/kho/xoakho/' + kho_id,
         );
         alert("Xóa thành công");
         loadData();
@@ -78,28 +79,45 @@ const IndexHDN: React.FC = () => {
 
   return (
     <>
-      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Danh sách hóa đơn nhập</h2>
+      <h2 style={{ color: '#4a90e2', borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px' }}>Danh sách kho nhập</h2>
       <Table dataSource={data}>
         <Column title="STT" dataIndex="index" key="index" />
-        <Column title="MaHDN" dataIndex="maHoaDon" key="maHoaDon" />
+        <Column title="Tên sản phẩm" dataIndex="ten_san_pham" key="ten_san_pham" />
         {/* Hiển thị tên nhà phân phối thay vì mã nhà phân phối */}
         <Column
-          title="Tên nhà phân phối"
-          dataIndex="maNhaPhanPhoi"
-          key="maNhaPhanPhoi"
-          render={(maNhaPhanPhoi) => maNhaPhanPhoiToTen[maNhaPhanPhoi] || 'Không xác định'}
+          title="Loại sản phẩm"
+          dataIndex="loai_san_pham"
+          key="loai_san_pham"
+          // render={(maNhaPhanPhoi) => maNhaPhanPhoiToTen[maNhaPhanPhoi] || 'Không xác định'}
         />
-        <Column title="Ngày tạo" dataIndex="ngayTao" key="ngayTao" />
-        <Column title="Kiểu thanh toán" dataIndex="kieuThanhToan" key="kieuThanhToan" />
-        <Column title="Mã tài khoản" dataIndex="maTaiKhoan" key="maTaiKhoan" />
-        <Column title="Tổng tiền" dataIndex="tongTien" key="tongTien" render={(tongTien: number) => <span>{formatCurrency(tongTien)}VNĐ</span>}  />
+        <Column title="Số lượng tổng" dataIndex="so_luong_tong" key="so_luong_tong" />
+        <Column title="Đơn vị tính" dataIndex="don_vi_tinh" key="don_vi_tinh" />
+        <Column title="Trạng thái" dataIndex="trang_thai" key="trang_thai" />
+        <Column title="Mô tả" dataIndex="mo_ta" key="mo_ta"   />
+        <Column
+          title="Ảnh"
+          dataIndex="hinh_anh"
+          key="hinh_anh"
+          render={(anh: string) => (
+            <img
+              src={anh} // Đảm bảo rằng `${anh}` chứa tên file chính xác
+              alt="Ảnh"
+              style={{ width: 50, height: "auto" }}
+            />
+          )}
+        />
+
       
         <Column
           title="Action"
           key="action"
           render={(_: any, record: any) => (
             <Space size="middle">
-               <a style={{ fontSize: '25px' }} onClick={() => handleDelete(record)} ><DeleteOutlined /></a>
+              {/* <Link  style={{fontSize:'25px'}} to={'/editPP/'+record.id}><EyeOutlined /></Link>  */}
+              <Link style={{ fontSize: '25px'}} to={'/chitietKho/' + record.kho_id}>
+                <EyeOutlined />
+              </Link>
+               <a style={{ fontSize: '25px', color:'red' }} onClick={() => handleDelete(record)} ><DeleteOutlined /></a>
             </Space>
           )}
         />
@@ -108,4 +126,4 @@ const IndexHDN: React.FC = () => {
   );
 };
 
-export default IndexHDN;
+export default IndexKho;
