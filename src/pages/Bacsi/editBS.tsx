@@ -151,7 +151,7 @@ const App: React.FC = () => {
             <Form.Item name="id" hidden>
               <Input type="hidden" />
             </Form.Item>
-
+            
             <Form.Item label="Tên bác sĩ" name="ho_ten">
               <Input placeholder="Nhập tên bác sĩ" />
             </Form.Item>

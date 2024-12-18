@@ -16,7 +16,9 @@ import {
   MedicineBoxOutlined,
   BarChartOutlined,
   TeamOutlined,
-  ShopOutlined
+  ShopOutlined,
+  ReadOutlined,
+  IdcardOutlined
 } from '@ant-design/icons';
 
 import { Link, Navigate } from 'react-router-dom'; // Import Link từ react-router-dom
@@ -112,11 +114,20 @@ const items2 = [
   }
   , {
     key: 'sub10',
-    icon: <ProfileOutlined />, // Gói Khám -> Profile để biểu thị dịch vụ khám
+    icon: <ReadOutlined />, // Gói Khám -> Profile để biểu thị dịch vụ khám
     label: 'Tin tức',
     children: [
       { key: '1', label: <Link to="/Tintuc">Tin tức</Link>, },
       { key: '2', label: <Link to="/IndexLoaiTinTuc">Loại tin tức</Link>, },
+    ]
+  }
+  , {
+    key: 'sub11',
+    icon: <IdcardOutlined />, // Gói Khám -> Profile để biểu thị dịch vụ khám
+    label: 'Khách hàng',
+    children: [
+      { key: '1', label: <Link to="/Khachhang">Khách hàng</Link>, },
+
     ]
   }
 ];

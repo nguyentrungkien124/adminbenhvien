@@ -38,6 +38,7 @@ import Goikham from './pages/goikham/Index';
 import MyEditor from './Components/MyEditor';
 import IndexLoaiTinTuc from './pages/LoaiTinTuc/indexLoaiTinTuc';
 import Tintuc from './pages/Tintuc/tintuc';
+import Khachhang from './pages/Khachhang/khachhang';
 
 function App() {
     return (
@@ -78,6 +79,7 @@ function App() {
                     <Route path='/indexGoikham' element={<Goikham />} />
                     <Route path='/IndexLoaiTinTuc' element={<IndexLoaiTinTuc />} />
                     <Route path='/Tintuc' element={<Tintuc />} />
+                    <Route path='/Khachhang' element={<Khachhang />} />
                 </Routes>
             </Admin>
         </Router>
