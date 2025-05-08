@@ -114,9 +114,7 @@ const IndexKho: React.FC = () => {
           render={(_: any, record: any) => (
             <Space size="middle">
               {/* <Link  style={{fontSize:'25px'}} to={'/editPP/'+record.id}><EyeOutlined /></Link>  */}
-              <Link style={{ fontSize: '25px'}} to={'/chitietKho/' + record.kho_id}>
-                <EyeOutlined />
-              </Link>
+           
                <a style={{ fontSize: '25px', color:'red' }} onClick={() => handleDelete(record)} ><DeleteOutlined /></a>
             </Space>
           )}

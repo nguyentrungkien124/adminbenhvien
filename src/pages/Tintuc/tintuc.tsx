@@ -1,9 +1,8 @@
-// Tintuc.tsx
 import React, { useEffect, useState } from "react";
 import { Button, Space, Table, Input } from "antd";
 import axios from "axios";
 import { EditOutlined, DeleteOutlined, PlusOutlined } from "@ant-design/icons";
-import ModalTinTuc from "../Tintuc/ModalFormTinTuc"; // Import modal mới tạo
+import ModalTinTuc from "../Tintuc/ModalFormTinTuc";
 
 const { Column } = Table;
 const { Search } = Input;
@@ -11,9 +10,11 @@ const { Search } = Input;
 const Tintuc: React.FC = () => {
     const [data, setData] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentRecord, setCurrentRecord] = useState<any>(null); // Lưu thông tin record đang sửa 
-    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]); // Lưu các id của các bản ghi được chọn
-    const [searchText, setSearchText] = useState<string>(""); // Thêm trạng thái để lưu giá trị tìm kiếm
+    const [currentRecord, setCurrentRecord] = useState<any>(null);
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+    const [searchText, setSearchText] = useState<string>("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     const loadData = async () => {
         try {
@@ -61,7 +62,6 @@ const Tintuc: React.FC = () => {
     };
 
     const handleEdit = (record: any) => {
-        console.log("Record được chỉnh sửa:", record); // Debug giá trị record
         setCurrentRecord(record);
         setIsModalOpen(true);
     };
@@ -73,33 +73,19 @@ const Tintuc: React.FC = () => {
     const handleSave = async (formData: FormData) => {
         try {
             if (currentRecord) {
-                // Nếu đang chỉnh sửa
-                formData.append("id", currentRecord.id); // Thêm ID vào FormData
-                
-                // Kiểm tra nếu không có ảnh mới được tải lên
-                if (!formData.has("files")) {
-                    if (currentRecord.hinh_anh) {
-                        // Nếu có ảnh cũ -> giữ nguyên
-                        formData.append("hinh_anh", currentRecord.hinh_anh);
-                    } else {
-                        // Nếu không có ảnh cũ -> để rỗng
-                        formData.append("hinh_anh", "");
-                    }
-                }
-    
+                formData.append("id", currentRecord.id);
                 await axios.put("http://localhost:9999/api/baiviet/suabaiviet", formData, {
                     headers: { "Content-Type": "multipart/form-data" },
                 });
                 alert("Chỉnh sửa thành công!");
             } else {
-                // Nếu thêm mới
                 await axios.post("http://localhost:9999/api/baiviet/thembaiviet", formData, {
                     headers: { "Content-Type": "multipart/form-data" },
                 });
                 alert("Thêm mới thành công!");
             }
             loadData();
-            setIsModalOpen(false); // Đóng modal
+            setIsModalOpen(false);
         } catch (error: any) {
             console.error("Lỗi khi lưu dữ liệu:", error);
             if (error.response) {
@@ -110,14 +96,15 @@ const Tintuc: React.FC = () => {
     };
     
     const handleSearch = (value: string) => {
-        setSearchText(value); // Cập nhật giá trị tìm kiếm
+        setSearchText(value);
     };
 
-
-    // Lọc dữ liệu dựa trên giá trị tìm kiếm
     const filteredData = data.filter(item => 
         item.tieu_de && item.tieu_de.toLowerCase().includes(searchText.toLowerCase())
     );
+
+    const paginatedData = filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
     useEffect(() => {
         loadData();
     }, []);
@@ -151,7 +138,7 @@ const Tintuc: React.FC = () => {
                 placeholder="Tìm kiếm..."
                 enterButton="Tìm"
                 size="middle"
-                onSearch={handleSearch} // Sử dụng hàm handleSearch
+                onSearch={handleSearch}
                 style={{ width: 200, marginLeft: 725 }}
             />
 
@@ -160,10 +147,18 @@ const Tintuc: React.FC = () => {
                     selectedRowKeys,
                     onChange: handleSelectChange,
                 }}
-                dataSource={filteredData} // Sử dụng dữ liệu đã lọc
+                dataSource={paginatedData}
                 rowKey="id"
                 bordered
-                pagination={false}
+                pagination={{
+                    current: currentPage,
+                    pageSize,
+                    total: filteredData.length,
+                    onChange: (page, pageSize) => {
+                        setCurrentPage(page);
+                        setPageSize(pageSize);
+                    },
+                }}
                 scroll={{ x: true }}
             >
                 <Column title="Tiêu đề" dataIndex="tieu_de" key="tieu_de" ellipsis />
@@ -171,9 +166,7 @@ const Tintuc: React.FC = () => {
                     title="Nội dung"
                     dataIndex="noi_dung"
                     key="noi_dung"
-                    render={(text) => {
-                        return text ? text.slice(0, 50) + '...' : ''; // Cắt bớt nếu quá dài
-                    }}
+                    render={(text) => text ? text.slice(0, 50) + '...' : ''}
                 />
                 <Column title="Loại bài viết" dataIndex="loai_bai_viet" key="loai_bai_viet" ellipsis />
                 <Column title="Trạng thái" dataIndex="trang_thai" key="trang_thai" ellipsis />
@@ -182,13 +175,10 @@ const Tintuc: React.FC = () => {
                     dataIndex="hinh_anh"
                     key="hinh_anh"
                     render={(anh: string) => (
-                        <img
-                            src={anh} // Đảm bảo rằng `${anh}` chứa tên file chính xác
-                            alt="Ảnh"
-                            style={{ width: 50, height: "auto" }}
-                        />
+                        <img src={anh} alt="Ảnh" style={{ width: 50, height: "auto" }} />
                     )}
-                    ellipsis />
+                    ellipsis
+                />
                 <Column title="Lượt xem" dataIndex="luot_xem" key="luot_xem" ellipsis />
                 <Column title="Ngày đăng" dataIndex="ngay_dang" key="ngay_dang" render={(text: string) => text.split('T')[0]} ellipsis />
                 <Column title="Ngày tạo" dataIndex="created_at" key="created_at" render={(text: string) => text.split('T')[0]} ellipsis />

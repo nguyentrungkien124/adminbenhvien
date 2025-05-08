@@ -18,8 +18,21 @@ const { Option } = Select;
 
 const ModalTinTuc: React.FC<ModalTinTucProps> = ({ visible, onCancel, onSave, currentRecord }) => {
     const [form] = useForm();
+    const [loaiBaiVietList, setLoaiBaiVietList] = useState([]);
 
     useEffect(() => {
+        // Gọi API để lấy danh sách loại bài viết
+        const fetchLoaiBaiViet = async () => {
+            try {
+                const response = await axios.get("http://localhost:9999/api/nhombaiviet/getall");
+                setLoaiBaiVietList(response.data); // Giả sử API trả về danh sách các loại bài viết
+            } catch (error) {
+                console.error("Lỗi khi gọi API loại bài viết:", error);
+            }
+        };
+
+        fetchLoaiBaiViet();
+
         if (currentRecord) {
             form.setFieldsValue({
                 tieu_de: currentRecord.tieu_de,
@@ -35,7 +48,7 @@ const ModalTinTuc: React.FC<ModalTinTucProps> = ({ visible, onCancel, onSave, cu
             form.resetFields();
         }
     }, [currentRecord, form]);
-    
+
     // form.setFieldsValue({
     //     noi_dung: currentRecord.noi_dung || "",
     // });
@@ -82,7 +95,7 @@ const ModalTinTuc: React.FC<ModalTinTucProps> = ({ visible, onCancel, onSave, cu
                     <CKEditor
                         editor={ClassicEditor}
                         config={{
-                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3MzQ0Nzk5OTksImp0aSI6IjBmYjQ5N2VmLWZiZGMtNGM1Ni05MjY4LThjYjZkNzMxNTFhZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImM5ZmI4Y2VlIn0.zm0uQVrERULxw9lAREythInLlah4AeasICgTmxnLvbffhaIFYbCUy34IaSZcaNOMpbNWoWrY1rHhSgk4osUVnQ' // Để trống hoặc sử dụng 'free' nếu CKEditor yêu cầu // Use 'free' license if applicable, remove or adjust based on your license
+                            licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3MzU5NDg3OTksImp0aSI6ImEwMThlZGU5LWEwYzAtNDkzOS04MjFlLTM4N2E0ZWMxZDkyYyIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6IjI2YmJkZjkwIn0.RUJVskWIa1bEwGxLnkjzdpCR3lkR7yw0K5KOrKEu75N9ePM9lkTpSAFV233lfO2sjvv9YQ3h7HAUKZ-3nC7CiQ' // Để trống hoặc sử dụng 'free' nếu CKEditor yêu cầu // Use 'free' license if applicable, remove or adjust based on your license
                         }}
                         data={form.getFieldValue("noi_dung") || ""} // Lấy giá trị từ Form
                         onChange={(event, editor) => {
@@ -95,14 +108,17 @@ const ModalTinTuc: React.FC<ModalTinTucProps> = ({ visible, onCancel, onSave, cu
 
                 <Form.Item label="Loại bài viết" name="loai_bai_viet" rules={[{ required: true, message: "Vui lòng chọn loại bài viết!" }]}>
                     <Select>
-                        <Option value="10">10</Option>
-                        <Option value="11">11</Option>
+                        {loaiBaiVietList.map((item: any) => (
+                            <Option key={item.id} value={item.id}>
+                                {item.tieu_de} {/* Thay đổi 'ten_loai' theo cấu trúc API của bạn */}
+                            </Option>
+                        ))}
                     </Select>
                 </Form.Item>
                 <Form.Item label="Trạng thái" name="trang_thai" rules={[{ required: true, message: "Vui lòng chọn trạng thái!" }]}>
                     <Select>
-                        <Option value="1">Hoạt động</Option>
-                        <Option value="0">Không hoạt động</Option>
+                        <Option value="1">Đầu</Option>
+                        <Option value="0">Các cái sau</Option>
                     </Select>
                 </Form.Item>
                 <Form.Item label="Ngày đăng" name="ngay_dang" rules={[{ required: true, message: "Vui lòng chọn ngày đăng!" }]}>

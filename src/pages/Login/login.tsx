@@ -2,35 +2,52 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import '../Login/login.css'; // Nhập file CSS
 import { notification } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginProps {
     onLoginSuccess: () => void; // Khai báo prop onLoginSuccess
 }
 
 function Login({ onLoginSuccess }: LoginProps) {
-    const [username, setEmail] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-
+    const navigate = useNavigate();
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         try {
-            const response = await axios.post('https://localhost:44381/api/UserControllers/login', {
-                username,
+            const response = await axios.post('http://localhost:9999/api/admin/loginadmin', {
+                email,
                 password
             });
 
             if (response.status === 200) {
                 // Đăng nhập thành công
                 console.log('Đăng nhập thành công:', response.data);
+
+                // Giả sử response.data chứa thông tin người dùng như id, name, email
+                const userData = {
+                    id: response.data.id, // ID người dùng
+                    name: response.data.name, // Tên người dùng
+                    email: response.data.email,
+                    khoa_id: response.data.khoa_id,
+                    role:response.data.role // Vai trò người dùng
+                     // Email người dùng
+                };
+
+                // Lưu thông tin người dùng vào sessionStorage
+                sessionStorage.setItem('user', JSON.stringify(userData));
+
                 notification.success({
                     message: 'Đăng nhập thành công',
-                    description: 'Xin chào admin Kiên',
+                    description: `Xin chào ${userData.name}`,
                     placement: 'top',
-                    duration: 2 // Thông báo tự động biến mất sau 3 giây
-                  });
+                    duration: 2 // Thông báo tự động biến mất sau 2 giây
+                });
+
                 // Gọi onLoginSuccess khi đăng nhập thành công
                 onLoginSuccess();
+                navigate('/');
             } else {
                 setError('Thông tin đăng nhập không chính xác');
             }
@@ -44,11 +61,12 @@ function Login({ onLoginSuccess }: LoginProps) {
             <form className="login-form" onSubmit={handleLogin}>
                 <h2 className="login-title">Admin Login</h2>
                 <div>
-                    <label>Username:</label>
+                    <label>Email:</label>
                     <input
-                        type="username"
-                        value={username}
+                        type="email"
+                        value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        required
                     />
                 </div>
                 <div>
