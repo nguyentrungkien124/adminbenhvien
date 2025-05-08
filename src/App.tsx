@@ -113,7 +113,7 @@ function App() {
                         <Route path='/Tintuc' element={<Tintuc />} />
                         <Route path='/Khachhang' element={<Khachhang />} />
                         <Route path='/NoiTru' element={<IndexNoiTru />} />
-                        <Route path='/QLGiuong' element={<IndexGiuong />} />
+                        <Route path='/Giuongbenh' element={<IndexGiuong />} />
                         <Route path='/QuanLyPhongBenh' element={<QuanLyPhongBenh />} />
                         <Route path="/letan" element={<Letan />} />
                     </Routes>

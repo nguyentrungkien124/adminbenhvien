@@ -120,8 +120,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/Khachhang">Khách hàng</Link> },
     ]
-  }
-  ,
+  },
   {
     key: 'sub12',
     icon: <IdcardOutlined />,
@@ -129,21 +128,23 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/Noitru">Nội trú</Link> },
     ]
-  },{
+  },
+  {
     key: 'sub13',
     icon: <IdcardOutlined />,
     label: 'Giường bệnh',
     children: [
       { key: '1', label: <Link to="/Giuongbenh">Giường bệnh</Link> },
     ]
-  },{
-    key: 'sub14',
-    icon: <IdcardOutlined />,
-    label: 'Phòng bệnh',
-    children: [
-      { key: '1', label: <Link to="/PhongBenh">Phòng bệnh</Link> },
-    ]
   },
+  // {
+  //   key: 'sub14',
+  //   icon: <IdcardOutlined />,
+  //   label: 'Phòng bệnh',
+  //   children: [
+  //     { key: '1', label: <Link to="/PhongBenh">Phòng bệnh</Link> },
+  //   ]
+  // },
   {
     key: 'sub15',
     icon: <IdcardOutlined />,
@@ -172,16 +173,27 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
   };
 
   // Lọc menu theo vai trò
-  const filteredMenuItems = items2.filter(item => {
-    if (role === 'admin') {
-      return item.key === 'sub4' || item.key === 'sub1' || item.key === 'sub2' || item.key === 'sub3' || item.key === 'sub5' || item.key === 'sub7' || item.key === 'sub8' || item.key === 'sub9' || item.key === 'sub10 ' || item.key === 'sub11'; // Admin: Thống kê, Bác sĩ
-    } else if (role === 'bacsi') {
-      return item.key === 'sub2' || item.key === 'sub5' || item.key === 'sub8' || item.key === 'sub12' || item.key === 'sub13' || item.key === 'sub14'; // Bác sĩ: Bác sĩ, Chuyên môn BS, Gói Khám
-    } else if (role === 'letan') {
-      return item.key === 'sub15'; // Lễ tân: Chuyên Khoa, Tin tức, Khách hàng
-    }
-    return false; // Không hiển thị menu nếu role không xác định
-  });
+  const filteredMenuItems = items2
+    .filter(item => {
+      if (role === 'admin') {
+        return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
+      } else if (role === 'bacsi') {
+        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14'].includes(item.key);
+      } else if (role === 'letan') {
+        return item.key === 'sub15';
+      }
+      return false;
+    })
+    .map(item => {
+      if (role === 'bacsi' && item.key === 'sub2') {
+        // Chỉ giữ mục con có key: '1' trong sub2 cho vai trò bacsi
+        return {
+          ...item,
+          children: item.children.filter(child => child.key === '1')
+        };
+      }
+      return item;
+    });
 
   return (
     <Layout>
