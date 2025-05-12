@@ -31,7 +31,8 @@ function Login({ onLoginSuccess }: LoginProps) {
                     name: response.data.name, // Tên người dùng
                     email: response.data.email,
                     khoa_id: response.data.khoa_id,
-                    role:response.data.role // Vai trò người dùng
+                    role:response.data.role,
+                     bac_si_id:response.data.bac_si_id 
                      // Email người dùng
                 };
 

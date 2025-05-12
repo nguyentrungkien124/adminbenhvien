@@ -41,6 +41,7 @@ interface FormData {
   tien_su_benh?: string;
   bao_hiem_y_te?: boolean;
   khach_hang_id?: number;
+  so_bao_hiem_y_te?: string;
 }
 interface Department {
   id: string;
@@ -118,9 +119,9 @@ const Letan: React.FC = () => {
       if (!patientData.khoa_id) {
         throw new Error('Thiếu ID khoa');
       }
-      if (!patientData.bac_si_id) {
-        throw new Error('Thiếu ID bác sĩ');
-      }
+      // if (!patientData.bac_si_id) {
+      //   throw new Error('Thiếu ID bác sĩ');
+      // }
 
       console.log('Sending patient data to tiepnhan:', patientData);
       const response = await axios.post('http://localhost:9999/api/letan/tiepnhan', patientData);
@@ -187,7 +188,8 @@ const Letan: React.FC = () => {
         hinh_anh: finalValues.hinh_anh?.[0]?.name || '',
         dan_toc: finalValues.dan_toc || '',
         CMND: finalValues.CMND || '',
-        nghe_nghiep: finalValues.nghe_nghiep || ''
+        nghe_nghiep: finalValues.nghe_nghiep || '',
+        so_bao_hiem_y_te: finalValues.so_bao_hiem_y_te || '',
       };
   
       const userId = await createUser(userData);
@@ -201,8 +203,8 @@ const Letan: React.FC = () => {
   
       const patientData = {
         khach_hang_id: userId, 
-        khoa_id: parseInt(finalValues.khoa_id) || 5,
-        bac_si_id: parseInt(finalValues.bac_si_id || 9),
+        khoa_id: parseInt(finalValues.khoa_id) || 20,
+        bac_si_id: parseInt(finalValues.bac_si_id || ''),
         trieu_chung: finalValues.trieu_chung,
         tien_su_benh: finalValues.tien_su_benh || '',
         bao_hiem_y_te: finalValues.bao_hiem_y_te
@@ -374,7 +376,17 @@ const Letan: React.FC = () => {
                       <Input placeholder="Nhập địa chỉ" />
                     </Form.Item>
                   </Col>
+
                   <Col span={12}>
+                    <Form.Item
+                      name="so_bao_hiem_y_te"
+                      label="Số bảo hiểm y tế"
+                      rules={[{ message: 'Vui lòng nhập số bảo hiểm y tế!' }]}
+                    >
+                      <Input placeholder="Nhập địa chỉ" />
+                    </Form.Item>
+                  </Col>
+                  {/* <Col span={12}>
                     <Form.Item
                       name="hinh_anh"
                       label="Ảnh đại diện"
@@ -383,7 +395,7 @@ const Letan: React.FC = () => {
                         <Button icon={<UploadOutlined />}>Tải lên ảnh</Button>
                       </Upload>
                     </Form.Item>
-                  </Col>
+                  </Col> */}
                 </Row>
               </>
             )}
@@ -404,7 +416,7 @@ const Letan: React.FC = () => {
                       </Select>
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  {/* <Col span={12}>
                     <Form.Item
                       name="bac_si_id"
                       label="Bác sĩ phụ trách"
@@ -416,7 +428,7 @@ const Letan: React.FC = () => {
                         ))}
                       </Select>
                     </Form.Item>
-                  </Col>
+                  </Col> */}
                 </Row>
 
                 <Form.Item
@@ -457,9 +469,9 @@ const Letan: React.FC = () => {
                   <p><strong>Khoa tiếp nhận:</strong> {
                     departments.find(d => d.id === form.getFieldValue('khoa_id'))?.name
                   }</p>
-                  <p><strong>Bác sĩ phụ trách:</strong> {
+                  {/* <p><strong>Bác sĩ phụ trách:</strong> {
                     doctors.find(d => d.id === form.getFieldValue('bac_si_id'))?.name
-                  }</p>
+                  }</p> */}
                   <p><strong>Triệu chứng:</strong> {form.getFieldValue('trieu_chung')}</p>
                   <p><strong>Bảo hiểm y tế:</strong> {form.getFieldValue('bao_hiem_y_te') ? 'Có' : 'Không'}</p>
                 </div>

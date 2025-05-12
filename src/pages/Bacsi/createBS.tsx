@@ -83,7 +83,7 @@ const App: React.FC = () => {
           placement: 'top',
           duration: 2
         });
-           navigate('/indexBS');
+          //  navigate('/indexBS');
       }
     } catch (error) {
       console.error("Error saving data:", error);
