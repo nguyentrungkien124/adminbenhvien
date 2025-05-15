@@ -13,12 +13,14 @@ import {
   DatePicker,
   Radio,
   Upload,
-  Spin
+  Spin,
+  Modal,
+  List,
 } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
-import type { UploadProps } from 'antd/es/upload/interface'; // ✅ Sửa đúng import kiểu
+import { UploadOutlined, SearchOutlined } from '@ant-design/icons';
+import type { UploadProps } from 'antd/es/upload/interface';
 import axios, { AxiosError } from 'axios';
-
+import dayjs from 'dayjs';
 const { Step } = Steps;
 const { Option } = Select;
 const { TextArea } = Input;
@@ -43,11 +45,27 @@ interface FormData {
   khach_hang_id?: number;
   so_bao_hiem_y_te?: string;
 }
+
 interface Department {
   id: string;
-  name: string; // Tương ứng với cột `ten` trong bảng khoa
+  name: string;
   mo_ta?: string;
   hinh_anh?: string;
+}
+
+interface User {
+  id: number;
+  ho_ten: string;
+  so_dien_thoai: string;
+  CMND: string;
+  ngay_sinh: string;
+  gioi_tinh: string;
+  dia_chi: string;
+  dan_toc: string;
+  nghe_nghiep: string;
+  email: string;
+  so_bao_hiem_y_te: string;
+  updated_at?: string; // Thêm trường updated_at để hiển thị trong modal
 }
 
 const Letan: React.FC = () => {
@@ -58,6 +76,10 @@ const Letan: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [formData, setFormData] = useState<FormData>({});
   const [createdUserId, setCreatedUserId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [existingUser, setExistingUser] = useState<User | null>(null);
+  const [searchResults, setSearchResults] = useState<User[]>([]); // Lưu danh sách kết quả tìm kiếm
+  const [isModalVisible, setIsModalVisible] = useState(false); // Hiển thị modal chọn bệnh nhân
 
   const props: UploadProps = {
     beforeUpload: (file) => {
@@ -70,18 +92,101 @@ const Letan: React.FC = () => {
     maxCount: 1,
   };
 
+  const searchPatient = async () => {
+    if (!searchQuery) {
+      message.error('Vui lòng nhập số điện thoại hoặc CMND/CCCD để tìm kiếm!');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.get('http://localhost:9999/api/user/search', {
+        params: {
+          so_dien_thoai: searchQuery,
+          CMND: searchQuery,
+        },
+      });
+
+      const users = response.data.data || [];
+      if (users.length === 0) {
+        setExistingUser(null);
+        setSearchResults([]);
+        message.info('Không tìm thấy bệnh nhân. Vui lòng nhập thông tin để tạo mới.');
+        form.resetFields([
+          'ho_ten',
+          'so_dien_thoai',
+          'CMND',
+          'ngay_sinh',
+          'gioi_tinh',
+          'dia_chi',
+          'dan_toc',
+          'nghe_nghiep',
+          'email',
+          'so_bao_hiem_y_te',
+        ]);
+      } else if (users.length === 1) {
+        const user = users[0];
+        setExistingUser(user);
+        setCreatedUserId(user.id);
+        form.setFieldsValue({
+          ho_ten: user.ho_ten,
+          so_dien_thoai: user.so_dien_thoai,
+          CMND: user.CMND,
+          ngay_sinh: user.ngay_sinh ? dayjs(user.ngay_sinh) : null,
+          gioi_tinh: user.gioi_tinh,
+          dia_chi: user.dia_chi,
+          dan_toc: user.dan_toc,
+          nghe_nghiep: user.nghe_nghiep,
+          email: user.email,
+          so_bao_hiem_y_te: user.so_bao_hiem_y_te,
+        });
+        message.success('Đã tìm thấy bệnh nhân. Vui lòng kiểm tra thông tin.');
+      } else {
+        setSearchResults(users);
+        setIsModalVisible(true); // Hiển thị modal nếu có nhiều kết quả
+      }
+    } catch (error) {
+      console.error('Lỗi khi tìm kiếm bệnh nhân:', error);
+      message.error('Có lỗi khi tìm kiếm bệnh nhân. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectUser = (user: User) => {
+    setExistingUser(user);
+    setCreatedUserId(user.id);
+    form.setFieldsValue({
+      ho_ten: user.ho_ten,
+      so_dien_thoai: user.so_dien_thoai,
+      CMND: user.CMND,
+      ngay_sinh: user.ngay_sinh ? dayjs(user.ngay_sinh) : null,
+      gioi_tinh: user.gioi_tinh,
+      dia_chi: user.dia_chi,
+      dan_toc: user.dan_toc,
+      nghe_nghiep: user.nghe_nghiep,
+      email: user.email,
+      so_bao_hiem_y_te: user.so_bao_hiem_y_te,
+    });
+    setIsModalVisible(false);
+    message.success('Đã chọn bệnh nhân. Vui lòng kiểm tra thông tin.');
+  };
+
+  const handleModalCancel = () => {
+    setIsModalVisible(false);
+    setSearchResults([]);
+  };
+
   const createUser = async (userData: any) => {
     try {
       console.log('Sending user data to create:', userData);
       const response = await axios.post('http://localhost:9999/api/user/create', userData);
       console.log('Create user response:', response.data);
-      
-      // Kiểm tra chi tiết response
+
       if (response.data) {
         console.log('Response data type:', typeof response.data);
         console.log('Response data keys:', Object.keys(response.data));
-        
-        // Nếu response.data là string, thử parse JSON
+
         if (typeof response.data === 'string') {
           try {
             const parsedData = JSON.parse(response.data);
@@ -94,14 +199,13 @@ const Letan: React.FC = () => {
             console.error('Error parsing response data:', e);
           }
         }
-        
-        // Nếu response.data là object
+
         if (response.data.id) {
           setCreatedUserId(response.data.id);
           return response.data.id;
         }
       }
-      
+
       console.error('Invalid response format:', response.data);
       throw new Error('Không nhận được ID người dùng từ server');
     } catch (error) {
@@ -112,25 +216,21 @@ const Letan: React.FC = () => {
 
   const tiepNhanBenhNhan = async (patientData: any) => {
     try {
-      // Kiểm tra dữ liệu trước khi gửi
       if (!patientData.khach_hang_id) {
         throw new Error('Thiếu ID khách hàng');
       }
       if (!patientData.khoa_id) {
         throw new Error('Thiếu ID khoa');
       }
-      // if (!patientData.bac_si_id) {
-      //   throw new Error('Thiếu ID bác sĩ');
-      // }
 
       console.log('Sending patient data to tiepnhan:', patientData);
       const response = await axios.post('http://localhost:9999/api/letan/tiepnhan', patientData);
       console.log('Tiepnhan response:', response.data);
-      
+
       if (!response.data) {
         throw new Error('Không nhận được phản hồi từ server');
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Lỗi khi tiếp nhận bệnh nhân:', error);
@@ -138,7 +238,7 @@ const Letan: React.FC = () => {
         console.error('Error details:', {
           status: error.response?.status,
           data: error.response?.data,
-          headers: error.response?.headers
+          headers: error.response?.headers,
         });
         throw new Error(error.response?.data?.message || 'Có lỗi xảy ra khi tiếp nhận bệnh nhân');
       }
@@ -147,17 +247,19 @@ const Letan: React.FC = () => {
   };
 
   const nextStep = () => {
-    form.validateFields().then(values => {
-      console.log('Step values before save:', values);
-      setFormData(prev => {
-        const newData = { ...prev, ...values };
-        console.log('Updated form data:', newData);
-        return newData;
+    form.validateFields()
+      .then((values) => {
+        console.log('Step values before save:', values);
+        setFormData((prev) => {
+          const newData = { ...prev, ...values };
+          console.log('Updated form data:', newData);
+          return newData;
+        });
+        setCurrentStep(currentStep + 1);
+      })
+      .catch((error) => {
+        console.log('Validation failed:', error);
       });
-      setCurrentStep(currentStep + 1);
-    }).catch(error => {
-      console.log('Validation failed:', error);
-    });
   };
 
   const prevStep = () => {
@@ -168,18 +270,18 @@ const Letan: React.FC = () => {
     setLoading(true);
     try {
       const finalValues = { ...formData, ...values };
-      
+
       if (!finalValues.ho_ten || !finalValues.so_dien_thoai || !finalValues.ngay_sinh || !finalValues.gioi_tinh || !finalValues.dia_chi) {
         message.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
         setLoading(false);
         return;
       }
-  
+
       const birthDateStr = finalValues.ngay_sinh.format('YYYY-MM-DD');
-  
+
       const userData = {
         ho_ten: finalValues.ho_ten,
-        email: finalValues.email || "undefined@hospital.com",
+        email: finalValues.email || 'undefined@hospital.com',
         mat_khau: 'defaultPassword',
         so_dien_thoai: finalValues.so_dien_thoai,
         ngay_sinh: birthDateStr,
@@ -191,32 +293,39 @@ const Letan: React.FC = () => {
         nghe_nghiep: finalValues.nghe_nghiep || '',
         so_bao_hiem_y_te: finalValues.so_bao_hiem_y_te || '',
       };
-  
-      const userId = await createUser(userData);
-      console.log('Created user ID:', userId);
-  
-      if (!userId) {
-        message.error('Không thể tạo người dùng mới');
-        setLoading(false);
-        return;
+
+      let userId = createdUserId;
+
+      // Nếu không có existingUser (tức là bệnh nhân mới), tạo người dùng
+      if (!existingUser) {
+        userId = await createUser(userData);
+        console.log('Created user ID:', userId);
+
+        if (!userId) {
+          message.error('Không thể tạo người dùng mới');
+          setLoading(false);
+          return;
+        }
       }
-  
+
       const patientData = {
-        khach_hang_id: userId, 
+        khach_hang_id: userId,
         khoa_id: parseInt(finalValues.khoa_id) || 20,
         bac_si_id: parseInt(finalValues.bac_si_id || ''),
         trieu_chung: finalValues.trieu_chung,
         tien_su_benh: finalValues.tien_su_benh || '',
-        bao_hiem_y_te: finalValues.bao_hiem_y_te
+        bao_hiem_y_te: finalValues.bao_hiem_y_te,
       };
       console.log('Patient data to send:', patientData);
-  
+
       await tiepNhanBenhNhan(patientData);
-  
+
       message.success('Tiếp nhận bệnh nhân thành công!');
       form.resetFields();
       setFormData({});
       setCreatedUserId(null);
+      setExistingUser(null);
+      setSearchQuery('');
       setCurrentStep(0);
     } catch (error) {
       console.error('Error in onFinish:', error);
@@ -229,18 +338,16 @@ const Letan: React.FC = () => {
       setLoading(false);
     }
   };
-  
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const khoaResponse = await axios.get('http://localhost:9999/api/khoa/getall');
-        // Đảm bảo ánh xạ đúng với cột `ten` trong bảng khoa
         const mappedDepartments = khoaResponse.data.map((dept: any) => ({
           id: dept.id.toString(),
           name: dept.ten,
           mo_ta: dept.mo_ta,
-          hinh_anh: dept.hinh_anh
+          hinh_anh: dept.hinh_anh,
         }));
         setDepartments(mappedDepartments);
 
@@ -254,6 +361,7 @@ const Letan: React.FC = () => {
 
     fetchData();
   }, []);
+
   return (
     <div style={{ padding: '24px' }}>
       <Spin spinning={loading}>
@@ -274,6 +382,24 @@ const Letan: React.FC = () => {
           >
             {currentStep === 0 && (
               <>
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                  <Col span={12}>
+                    <Input
+                      placeholder="Nhập số điện thoại hoặc CMND/CCCD"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      prefix={<SearchOutlined />}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Button type="primary" onClick={searchPatient} icon={<SearchOutlined />}>
+                      Tìm kiếm bệnh nhân
+                    </Button>
+                  </Col>
+                </Row>
+
+                <Divider>Thông tin bệnh nhân</Divider>
+
                 <Row gutter={16}>
                   <Col span={12}>
                     <Form.Item
@@ -281,7 +407,7 @@ const Letan: React.FC = () => {
                       label="Họ và tên"
                       rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
                     >
-                      <Input placeholder="Nhập họ và tên" />
+                      <Input placeholder="Nhập họ và tên" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
@@ -290,10 +416,10 @@ const Letan: React.FC = () => {
                       label="Số điện thoại"
                       rules={[
                         { required: true, message: 'Vui lòng nhập số điện thoại!' },
-                        { pattern: /^[0-9]+$/, message: 'Số điện thoại không hợp lệ!' }
+                        { pattern: /^[0-9]+$/, message: 'Số điện thoại không hợp lệ!' },
                       ]}
                     >
-                      <Input placeholder="Nhập số điện thoại" />
+                      <Input placeholder="Nhập số điện thoại" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -305,7 +431,7 @@ const Letan: React.FC = () => {
                       label="Giới tính"
                       rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
                     >
-                      <Radio.Group>
+                      <Radio.Group disabled={!!existingUser}>
                         <Radio value="male">Nam</Radio>
                         <Radio value="female">Nữ</Radio>
                         <Radio value="other">Khác</Radio>
@@ -318,50 +444,40 @@ const Letan: React.FC = () => {
                       label="Ngày sinh"
                       rules={[{ required: true, message: 'Vui lòng chọn ngày sinh!' }]}
                     >
-                      <DatePicker 
-                        style={{ width: '100%' }} 
+                      <DatePicker
+                        style={{ width: '100%' }}
                         format="DD/MM/YYYY"
                         placeholder="Chọn ngày sinh"
                         allowClear={false}
+                        disabled={!!existingUser}
                       />
                     </Form.Item>
                   </Col>
                   <Col span={8}>
-                    <Form.Item
-                      name="CMND"
-                      label="Số CMND/CCCD"
-                    >
-                      <Input placeholder="Nhập số CMND/CCCD" />
+                    <Form.Item name="CMND" label="Số CMND/CCCD">
+                      <Input placeholder="Nhập số CMND/CCCD" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                 </Row>
 
                 <Row gutter={16}>
                   <Col span={8}>
-                    <Form.Item
-                      name="dan_toc"
-                      label="Dân tộc"
-                    >
-                      <Input placeholder="Nhập dân tộc" />
+                    <Form.Item name="dan_toc" label="Dân tộc">
+                      <Input placeholder="Nhập dân tộc" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                   <Col span={8}>
-                    <Form.Item
-                      name="nghe_nghiep"
-                      label="Nghề nghiệp"
-                    >
-                      <Input placeholder="Nhập nghề nghiệp" />
+                    <Form.Item name="nghe_nghiep" label="Nghề nghiệp">
+                      <Input placeholder="Nhập nghề nghiệp" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                   <Col span={8}>
                     <Form.Item
                       name="email"
                       label="Email"
-                      rules={[
-                        { type: 'email', message: 'Email không hợp lệ!' }
-                      ]}
+                      rules={[{ type: 'email', message: 'Email không hợp lệ!' }]}
                     >
-                      <Input placeholder="Nhập email (nếu có)" />
+                      <Input placeholder="Nhập email (nếu có)" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -373,29 +489,14 @@ const Letan: React.FC = () => {
                       label="Địa chỉ"
                       rules={[{ required: true, message: 'Vui lòng nhập địa chỉ!' }]}
                     >
-                      <Input placeholder="Nhập địa chỉ" />
+                      <Input placeholder="Nhập địa chỉ" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-
                   <Col span={12}>
-                    <Form.Item
-                      name="so_bao_hiem_y_te"
-                      label="Số bảo hiểm y tế"
-                      rules={[{ message: 'Vui lòng nhập số bảo hiểm y tế!' }]}
-                    >
-                      <Input placeholder="Nhập địa chỉ" />
+                    <Form.Item name="so_bao_hiem_y_te" label="Số bảo hiểm y tế">
+                      <Input placeholder="Nhập số bảo hiểm y tế" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-                  {/* <Col span={12}>
-                    <Form.Item
-                      name="hinh_anh"
-                      label="Ảnh đại diện"
-                    >
-                      <Upload {...props} maxCount={1}>
-                        <Button icon={<UploadOutlined />}>Tải lên ảnh</Button>
-                      </Upload>
-                    </Form.Item>
-                  </Col> */}
                 </Row>
               </>
             )}
@@ -407,28 +508,17 @@ const Letan: React.FC = () => {
                     <Form.Item
                       name="khoa_id"
                       label="Khoa tiếp nhận"
-                      rules={[{  message: 'Vui lòng chọn khoa!' }]}
+                      rules={[{ required: true, message: 'Vui lòng chọn khoa!' }]}
                     >
                       <Select placeholder="Chọn khoa">
-                        {departments.map(dept => (
-                          <Option key={dept.id} value={dept.id}>{dept.name}</Option>
+                        {departments.map((dept) => (
+                          <Option key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </Option>
                         ))}
                       </Select>
                     </Form.Item>
                   </Col>
-                  {/* <Col span={12}>
-                    <Form.Item
-                      name="bac_si_id"
-                      label="Bác sĩ phụ trách"
-                      rules={[{  message: 'Vui lòng chọn bác sĩ!' }]}
-                    >
-                      <Select placeholder="Chọn bác sĩ">
-                        {doctors.map(doc => (
-                          <Option key={doc.id} value={doc.id}>{doc.name}</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col> */}
                 </Row>
 
                 <Form.Item
@@ -439,10 +529,7 @@ const Letan: React.FC = () => {
                   <TextArea rows={4} placeholder="Mô tả triệu chứng/tình trạng bệnh nhân" />
                 </Form.Item>
 
-                <Form.Item
-                  name="tien_su_benh"
-                  label="Tiền sử bệnh"
-                >
+                <Form.Item name="tien_su_benh" label="Tiền sử bệnh">
                   <TextArea rows={2} placeholder="Nhập tiền sử bệnh (nếu có)" />
                 </Form.Item>
 
@@ -463,23 +550,28 @@ const Letan: React.FC = () => {
               <>
                 <Divider orientation="left">Thông tin bệnh nhân</Divider>
                 <div style={{ marginBottom: '24px' }}>
-                  <p><strong>Họ tên:</strong> {form.getFieldValue('ho_ten')}</p>
-                  <p><strong>SĐT:</strong> {form.getFieldValue('so_dien_thoai')}</p>
-                  <p><strong>Ngày sinh:</strong> {form.getFieldValue('ngay_sinh')?.format('DD/MM/YYYY')}</p>
-                  <p><strong>Khoa tiếp nhận:</strong> {
-                    departments.find(d => d.id === form.getFieldValue('khoa_id'))?.name
-                  }</p>
-                  {/* <p><strong>Bác sĩ phụ trách:</strong> {
-                    doctors.find(d => d.id === form.getFieldValue('bac_si_id'))?.name
-                  }</p> */}
-                  <p><strong>Triệu chứng:</strong> {form.getFieldValue('trieu_chung')}</p>
-                  <p><strong>Bảo hiểm y tế:</strong> {form.getFieldValue('bao_hiem_y_te') ? 'Có' : 'Không'}</p>
+                  <p>
+                    <strong>Họ tên:</strong> {form.getFieldValue('ho_ten')}
+                  </p>
+                  <p>
+                    <strong>SĐT:</strong> {form.getFieldValue('so_dien_thoai')}
+                  </p>
+                  <p>
+                    <strong>Ngày sinh:</strong> {form.getFieldValue('ngay_sinh')?.format('DD/MM/YYYY')}
+                  </p>
+                  <p>
+                    <strong>Khoa tiếp nhận:</strong>{' '}
+                    {departments.find((d) => d.id === form.getFieldValue('khoa_id'))?.name}
+                  </p>
+                  <p>
+                    <strong>Triệu chứng:</strong> {form.getFieldValue('trieu_chung')}
+                  </p>
+                  <p>
+                    <strong>Bảo hiểm y tế:</strong> {form.getFieldValue('bao_hiem_y_te') ? 'Có' : 'Không'}
+                  </p>
                 </div>
                 <Divider />
-                <Form.Item
-                  name="notes"
-                  label="Ghi chú thêm"
-                >
+                <Form.Item name="notes" label="Ghi chú thêm">
                   <TextArea rows={2} placeholder="Nhập ghi chú (nếu có)" />
                 </Form.Item>
               </>
@@ -503,6 +595,31 @@ const Letan: React.FC = () => {
               )}
             </div>
           </Form>
+
+          <Modal
+            title="Chọn bệnh nhân"
+            open={isModalVisible}
+            onCancel={handleModalCancel}
+            footer={null}
+          >
+            <List
+              dataSource={searchResults}
+              renderItem={(user) => (
+                <List.Item
+                  actions={[
+                    <Button type="primary" onClick={() => handleSelectUser(user)}>
+                      Chọn
+                    </Button>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={user.ho_ten}
+                    description={`SĐT: ${user.so_dien_thoai} | CMND: ${user.CMND} | Ngày sinh: ${user.ngay_sinh} | Cập nhật: ${user.updated_at || 'Không rõ'}`}
+                  />
+                </List.Item>
+              )}
+            />
+          </Modal>
         </Card>
       </Spin>
     </div>

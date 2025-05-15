@@ -1120,21 +1120,35 @@ const KhamLamSan: React.FC = () => {
 
     try {
       setXepGiuongLoading(true);
-      console.log('Calling API admissions:', { appointmentId: selectedAppointmentId, bedId: selectedBedId, bacSiId });
-      const response = await axios.post(`http://localhost:9999/api/letan/admissions`, {
+      console.log('Calling API admissions:', { appointment_id: selectedAppointmentId, khach_hang_id: selectedAppointment?.khach_hang_id, bed_id: selectedBedId, bac_si_id: bacSiId });
+      const admissionResponse = await axios.post(`http://localhost:9999/api/letan/admissions`, {
         appointment_id: selectedAppointmentId,
         khach_hang_id: selectedAppointment?.khach_hang_id,
         bac_si_id: bacSiId,
         bed_id: selectedBedId
       });
-      console.log('API admissions response:', response.data);
+      console.log('API admissions response:', admissionResponse.data);
+
+      const admissionId = admissionResponse.data.data?.id;
+      if (!admissionId) {
+        throw new Error('Không nhận được admission_id từ API admissions');
+      }
+
+      // Gọi API chi-phi-giuong để ghi nhận chi phí giường
+      console.log('Calling API chi-phi-giuong:', { admission_id: admissionId, bed_id: selectedBedId, ngay: dayjs().format('YYYY-MM-DD') });
+      await axios.post(`http://localhost:9999/api/noitru/chi-phi-giuong`, {
+        admission_id: admissionId,
+        bed_id: selectedBedId,
+        ngay: dayjs().format('YYYY-MM-DD')
+      });
+      console.log('API chi-phi-giuong response: Chi phí giường ghi nhận thành công');
 
       const updatedAppointments = appointments.map((appt) =>
         appt.id === selectedAppointmentId ? { ...appt, is_admitted: true } : appt
       );
       setAppointments(updatedAppointments);
       
-      message.success('Xếp giường thành công');
+      message.success('Xếp giường và ghi nhận chi phí giường thành công');
       setIsXepGiuongModalVisible(false);
       setSelectedBedId(null);
       setSelectedRoomId(null);
@@ -1161,8 +1175,8 @@ const KhamLamSan: React.FC = () => {
       console.log('Refreshed beds:', fetchedBeds);
       setBeds(fetchedBeds);
     } catch (error: any) {
-      console.error('Error assigning bed:', error);
-      message.error(error.response?.data?.message || 'Có lỗi khi xếp giường. Vui lòng thử lại.');
+      console.error('Error assigning bed or recording bed cost:', error);
+      message.error(error.response?.data?.message || 'Có lỗi khi xếp giường hoặc ghi nhận chi phí giường. Vui lòng thử lại.');
     } finally {
       setXepGiuongLoading(false);
     }
