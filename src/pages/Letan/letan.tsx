@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Form,
   Input,
@@ -16,16 +16,22 @@ import {
   Spin,
   Modal,
   List,
+  Tag,
+  Typography,
 } from 'antd';
-import { UploadOutlined, SearchOutlined } from '@ant-design/icons';
+import { UploadOutlined, SearchOutlined, CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
 import axios, { AxiosError } from 'axios';
 import dayjs from 'dayjs';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 const { Step } = Steps;
 const { Option } = Select;
 const { TextArea } = Input;
+const { Title, Text } = Typography;
 
 interface FormData {
+  [key: string]: any;
   ho_ten?: string;
   email?: string;
   mat_khau?: string;
@@ -44,6 +50,7 @@ interface FormData {
   bao_hiem_y_te?: boolean;
   khach_hang_id?: number;
   so_bao_hiem_y_te?: string;
+  source?: string;
 }
 
 interface Department {
@@ -65,21 +72,39 @@ interface User {
   nghe_nghiep: string;
   email: string;
   so_bao_hiem_y_te: string;
-  updated_at?: string; // Thêm trường updated_at để hiển thị trong modal
+  updated_at?: string;
+}
+
+interface Appointment {
+  id: number;
+  khach_hang_id: number;
+  khoa_id: number;
+  bac_si_id: number | null;
+  trieu_chung: string;
+  ngay_kham: string;
+  status: number;
+  source: string;
+  source_id: number;
+  created_at: string;
 }
 
 const Letan: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
   const [doctors, setDoctors] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [formData, setFormData] = useState<FormData>({});
   const [createdUserId, setCreatedUserId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [existingUser, setExistingUser] = useState<User | null>(null);
-  const [searchResults, setSearchResults] = useState<User[]>([]); // Lưu danh sách kết quả tìm kiếm
-  const [isModalVisible, setIsModalVisible] = useState(false); // Hiển thị modal chọn bệnh nhân
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [soThuTu, setSoThuTu] = useState<string | null>(null);
+  const [isSoThuTuModalVisible, setIsSoThuTuModalVisible] = useState(false);
 
   const props: UploadProps = {
     beforeUpload: (file) => {
@@ -111,6 +136,7 @@ const Letan: React.FC = () => {
       if (users.length === 0) {
         setExistingUser(null);
         setSearchResults([]);
+        setAppointment(null);
         message.info('Không tìm thấy bệnh nhân. Vui lòng nhập thông tin để tạo mới.');
         form.resetFields([
           'ho_ten',
@@ -128,7 +154,7 @@ const Letan: React.FC = () => {
         const user = users[0];
         setExistingUser(user);
         setCreatedUserId(user.id);
-        form.setFieldsValue({
+        const userData = {
           ho_ten: user.ho_ten,
           so_dien_thoai: user.so_dien_thoai,
           CMND: user.CMND,
@@ -139,24 +165,61 @@ const Letan: React.FC = () => {
           nghe_nghiep: user.nghe_nghiep,
           email: user.email,
           so_bao_hiem_y_te: user.so_bao_hiem_y_te,
+        };
+        setFormData(userData);
+        form.setFieldsValue(userData);
+
+        const ngay_kham = dayjs().format('YYYY-MM-DD');
+        const appointmentResponse = await axios.get('http://localhost:9999/api/user/check-appointment', {
+          params: {
+            so_dien_thoai: user.so_dien_thoai,
+            ngay_kham: ngay_kham,
+            source: 'online', // Chỉ lấy lịch hẹn trực tuyến
+          },
         });
-        message.success('Đã tìm thấy bệnh nhân. Vui lòng kiểm tra thông tin.');
+
+        if (appointmentResponse.data.appointment) {
+          const appt = appointmentResponse.data.appointment;
+          const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
+          const isPending = appt.status === 0; // 0: chưa khám
+
+          setFormData((prev) => ({ ...prev, source: appt.source }));
+          if (isToday && isPending && appt.source === 'online') { // Đảm bảo source là 'online'
+            setAppointment(appt);
+            if (appt.source === 'online') {
+              setIsConfirming(true);
+            }
+            message.success('Đã tìm thấy bệnh nhân và lịch hẹn trực tuyến. Vui lòng kiểm tra thông tin.');
+            const appointmentData = {
+              khoa_id: appt.khoa_id.toString(),
+              trieu_chung: appt.trieu_chung,
+            };
+            setFormData((prev) => ({ ...prev, ...appointmentData }));
+            form.setFieldsValue(appointmentData);
+          } else {
+            setAppointment(null);
+            message.success('Đã tìm thấy bệnh nhân, nhưng không có lịch hẹn trực tuyến hợp lệ hôm nay.');
+          }
+        } else {
+          setAppointment(null);
+          message.success('Đã tìm thấy bệnh nhân, nhưng không có lịch hẹn trực tuyến hôm nay.');
+        }
       } else {
         setSearchResults(users);
-        setIsModalVisible(true); // Hiển thị modal nếu có nhiều kết quả
+        setIsModalVisible(true);
       }
     } catch (error) {
       console.error('Lỗi khi tìm kiếm bệnh nhân:', error);
-      message.error('Có lỗi khi tìm kiếm bệnh nhân. Vui lòng thử lại.');
+      message.error('Có lỗi khi tìm kiếm bệnh nhân hoặc lịch hẹn. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectUser = (user: User) => {
+  const handleSelectUser = async (user: User) => {
     setExistingUser(user);
     setCreatedUserId(user.id);
-    form.setFieldsValue({
+    const userData = {
       ho_ten: user.ho_ten,
       so_dien_thoai: user.so_dien_thoai,
       CMND: user.CMND,
@@ -167,9 +230,52 @@ const Letan: React.FC = () => {
       nghe_nghiep: user.nghe_nghiep,
       email: user.email,
       so_bao_hiem_y_te: user.so_bao_hiem_y_te,
-    });
+    };
+    setFormData(userData);
+    form.setFieldsValue(userData);
+
+    try {
+      const ngay_kham = dayjs().format('YYYY-MM-DD');
+      const appointmentResponse = await axios.get('http://localhost:9999/api/user/check-appointment', {
+        params: {
+          so_dien_thoai: user.so_dien_thoai,
+          ngay_kham: ngay_kham,
+          source: 'online', // Chỉ lấy lịch hẹn trực tuyến
+        },
+      });
+
+      if (appointmentResponse.data.appointment) {
+        const appt = appointmentResponse.data.appointment;
+        const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
+        const isPending = appt.status === 0;
+
+        setFormData((prev) => ({ ...prev, source: appt.source }));
+        if (isToday && isPending && appt.source === 'online') {
+          setAppointment(appt);
+          if (appt.source === 'online') {
+            setIsConfirming(true);
+          }
+          message.success('Đã chọn bệnh nhân và tìm thấy lịch hẹn trực tuyến. Vui lòng kiểm tra thông tin.');
+          const appointmentData = {
+            khoa_id: appt.khoa_id.toString(),
+            trieu_chung: appt.trieu_chung,
+          };
+          setFormData((prev) => ({ ...prev, ...appointmentData }));
+          form.setFieldsValue(appointmentData);
+        } else {
+          setAppointment(null);
+          message.success('Đã chọn bệnh nhân, nhưng không có lịch hẹn trực tuyến hợp lệ hôm nay.');
+        }
+      } else {
+        setAppointment(null);
+        message.success('Đã chọn bệnh nhân, nhưng không có lịch hẹn trực tuyến hôm nay.');
+      }
+    } catch (error) {
+      console.error('Lỗi khi kiểm tra lịch hẹn:', error);
+      message.error('Có lỗi khi kiểm tra lịch hẹn. Vui lòng thử lại.');
+    }
+
     setIsModalVisible(false);
-    message.success('Đã chọn bệnh nhân. Vui lòng kiểm tra thông tin.');
   };
 
   const handleModalCancel = () => {
@@ -246,6 +352,123 @@ const Letan: React.FC = () => {
     }
   };
 
+  const generateSoThuTu = async (hinh_thuc: string, khach_hang_id: number, khoa_id: number, bac_si_id: number | null) => {
+    try {
+      const response = await axios.post('http://localhost:9999/api/user/generate-stt', {
+        hinh_thuc,
+        khach_hang_id,
+        khoa_id,
+        bac_si_id,
+      });
+      return response.data.so_thu_tu;
+    } catch (error) {
+      console.error('Lỗi khi sinh số thứ tự:', error);
+      throw new Error('Không thể sinh số thứ tự. Vui lòng thử lại.');
+    }
+  };
+
+  const generatePDF = () => {
+    const requiredFields = [
+      { key: 'ho_ten', label: 'Họ tên' },
+      { key: 'so_dien_thoai', label: 'Số điện thoại' },
+      { key: 'khoa_id', label: 'Khoa tiếp nhận' },
+      { key: 'trieu_chung', label: 'Triệu chứng' },
+    ];
+
+    const missingFields = requiredFields.filter(field => !formData[field.key]);
+    if (!soThuTu || missingFields.length > 0) {
+      const missingLabels = missingFields.map(field => field.label).join(', ');
+      message.error(`Không thể tạo PDF - Thiếu thông tin: ${missingLabels}`);
+      return;
+    }
+
+    try {
+      setPdfGenerating(true);
+      
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a5',
+      });
+      
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PHIẾU SỐ THỨ TỰ KHÁM BỆNH', 105, 20, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('BỆNH VIỆN XYZ', 105, 30, { align: 'center' });
+      doc.text('----------------------------------------', 105, 35, { align: 'center' });
+
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`SỐ: ${soThuTu}`, 105, 50, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      
+      const patientInfo = [
+        { label: 'Họ tên:', value: formData.ho_ten || 'N/A' },
+        { label: 'Số điện thoại:', value: formData.so_dien_thoai || 'N/A' },
+        { label: 'Khoa tiếp nhận:', value: departments.find((d) => d.id === formData.khoa_id)?.name || 'Chưa xác định' },
+        { label: 'Triệu chứng:', value: formData.trieu_chung || 'Không có' },
+        { label: 'Ngày khám:', value: dayjs().format('DD/MM/YYYY HH:mm') },
+        { label: 'Hình thức:', value: formData.source === 'online' ? 'Trực tuyến' : 'Trực tiếp' },
+      ];
+
+      let yPos = 65;
+      patientInfo.forEach(item => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${item.label}`, 20, yPos);
+        doc.setFont('helvetica', 'normal');
+        const valueText = item.value.length > 40 ? item.value.substring(0, 40) + '...' : item.value;
+        doc.text(valueText, 60, yPos);
+        yPos += 10;
+      });
+
+      doc.setFontSize(10);
+      doc.text('Vui lòng giữ phiếu này và đến đúng giờ khám.', 105, 130, { align: 'center' });
+      doc.text('Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!', 105, 140, { align: 'center' });
+
+      const filename = `SoThuTu_${soThuTu}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+      
+      doc.save(filename);
+      
+      message.success('Tải phiếu số thứ tự thành công!');
+    } catch (error) {
+      console.error('Lỗi khi tạo PDF:', error);
+      message.error('Không thể tạo PDF. Vui lòng thử lại.');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const handleConfirmAppointment = async () => {
+    if (!appointment || !createdUserId) return;
+
+    setLoading(true);
+    try {
+      const so_thu_tu = await generateSoThuTu('tructuyen', createdUserId, appointment.khoa_id, null);
+      setSoThuTu(so_thu_tu);
+      setIsSoThuTuModalVisible(true);
+      setIsConfirming(false);
+
+      const updatedFormData = {
+        ...formData,
+        khoa_id: appointment.khoa_id.toString(),
+        trieu_chung: appointment.trieu_chung,
+      };
+      setFormData(updatedFormData);
+      form.setFieldsValue(updatedFormData);
+      setCurrentStep(1);
+    } catch (error) {
+      console.error('Lỗi khi xác nhận lịch hẹn:', error);
+      message.error('Có lỗi khi xác nhận lịch hẹn. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const nextStep = () => {
     form.validateFields()
       .then((values) => {
@@ -270,6 +493,7 @@ const Letan: React.FC = () => {
     setLoading(true);
     try {
       const finalValues = { ...formData, ...values };
+      setFormData(finalValues);
 
       if (!finalValues.ho_ten || !finalValues.so_dien_thoai || !finalValues.ngay_sinh || !finalValues.gioi_tinh || !finalValues.dia_chi) {
         message.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
@@ -296,7 +520,6 @@ const Letan: React.FC = () => {
 
       let userId = createdUserId;
 
-      // Nếu không có existingUser (tức là bệnh nhân mới), tạo người dùng
       if (!existingUser) {
         userId = await createUser(userData);
         console.log('Created user ID:', userId);
@@ -320,11 +543,16 @@ const Letan: React.FC = () => {
 
       await tiepNhanBenhNhan(patientData);
 
-      message.success('Tiếp nhận bệnh nhân thành công!');
+      const hinh_thuc = (appointment && isConfirming) ? 'tructuyen' : 'tructiep';
+      const so_thu_tu = await generateSoThuTu(hinh_thuc, userId!, parseInt(finalValues.khoa_id), null);
+      setSoThuTu(so_thu_tu);
+      setIsSoThuTuModalVisible(true);
+
       form.resetFields();
       setFormData({});
       setCreatedUserId(null);
       setExistingUser(null);
+      setAppointment(null);
       setSearchQuery('');
       setCurrentStep(0);
     } catch (error) {
@@ -350,9 +578,6 @@ const Letan: React.FC = () => {
           hinh_anh: dept.hinh_anh,
         }));
         setDepartments(mappedDepartments);
-
-        // const doctorResponse = await axios.get('http://localhost:9999/api/doctors');
-        // setDoctors(doctorResponse.data);
       } catch (error) {
         console.error('Lỗi khi lấy dữ liệu:', error);
         message.error('Không thể tải danh sách khoa hoặc bác sĩ');
@@ -397,6 +622,41 @@ const Letan: React.FC = () => {
                     </Button>
                   </Col>
                 </Row>
+
+                {appointment && (
+                  <div style={{ marginBottom: 16 }}>
+                    <Divider orientation="left">Thông tin lịch hẹn</Divider>
+                    <p>
+                      <strong>ID Lịch hẹn:</strong> {appointment.id}
+                    </p>
+                    <p>
+                      <strong>Khoa:</strong>{' '}
+                      {departments.find((d) => d.id === appointment.khoa_id.toString())?.name || 'Chưa xác định'}
+                    </p>
+                    <p>
+                      <strong>Triệu chứng:</strong> {appointment.trieu_chung}
+                    </p>
+                    <p>
+                      <strong>Ngày khám:</strong> {dayjs(appointment.ngay_kham).format('DD/MM/YYYY HH:mm')}
+                    </p>
+                    <p>
+                      <strong>Hình thức:</strong>{' '}
+                      <Tag color={appointment.source === 'online' ? 'blue' : 'green'}>
+                        {appointment.source === 'online' ? 'Trực tuyến' : 'Trực tiếp'}
+                      </Tag>
+                    </p>
+                    {appointment.source === 'online' && isConfirming && (
+                      <Button
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        onClick={handleConfirmAppointment}
+                        style={{ marginTop: 8 }}
+                      >
+                        Xác nhận
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 <Divider>Thông tin bệnh nhân</Divider>
 
@@ -510,7 +770,7 @@ const Letan: React.FC = () => {
                       label="Khoa tiếp nhận"
                       rules={[{ required: true, message: 'Vui lòng chọn khoa!' }]}
                     >
-                      <Select placeholder="Chọn khoa">
+                      <Select placeholder="Chọn khoa" disabled={!!appointment}>
                         {departments.map((dept) => (
                           <Option key={dept.id} value={dept.id}>
                             {dept.name}
@@ -551,23 +811,23 @@ const Letan: React.FC = () => {
                 <Divider orientation="left">Thông tin bệnh nhân</Divider>
                 <div style={{ marginBottom: '24px' }}>
                   <p>
-                    <strong>Họ tên:</strong> {form.getFieldValue('ho_ten')}
+                    <strong>Họ tên:</strong> {formData.ho_ten || 'N/A'}
                   </p>
                   <p>
-                    <strong>SĐT:</strong> {form.getFieldValue('so_dien_thoai')}
+                    <strong>SĐT:</strong> {formData.so_dien_thoai || 'N/A'}
                   </p>
                   <p>
-                    <strong>Ngày sinh:</strong> {form.getFieldValue('ngay_sinh')?.format('DD/MM/YYYY')}
+                    <strong>Ngày sinh:</strong> {formData.ngay_sinh?.format('DD/MM/YYYY') || 'N/A'}
                   </p>
                   <p>
                     <strong>Khoa tiếp nhận:</strong>{' '}
-                    {departments.find((d) => d.id === form.getFieldValue('khoa_id'))?.name}
+                    {departments.find((d) => d.id === formData.khoa_id)?.name || 'N/A'}
                   </p>
                   <p>
-                    <strong>Triệu chứng:</strong> {form.getFieldValue('trieu_chung')}
+                    <strong>Triệu chứng:</strong> {formData.trieu_chung || 'N/A'}
                   </p>
                   <p>
-                    <strong>Bảo hiểm y tế:</strong> {form.getFieldValue('bao_hiem_y_te') ? 'Có' : 'Không'}
+                    <strong>Bảo hiểm y tế:</strong> {formData.bao_hiem_y_te ? 'Có' : 'Không'}
                   </p>
                 </div>
                 <Divider />
@@ -619,6 +879,34 @@ const Letan: React.FC = () => {
                 </List.Item>
               )}
             />
+          </Modal>
+
+          <Modal
+            title="Số thứ tự khám bệnh"
+            open={isSoThuTuModalVisible}
+            onOk={() => setIsSoThuTuModalVisible(false)}
+            onCancel={() => setIsSoThuTuModalVisible(false)}
+            footer={[
+              <Button
+                key="download"
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={generatePDF}
+                loading={pdfGenerating}
+              >
+                Tải PDF
+              </Button>,
+              <Button key="close" onClick={() => setIsSoThuTuModalVisible(false)}>
+                Đóng
+              </Button>,
+            ]}
+          >
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <Title level={2} style={{ color: '#1890ff' }}>{soThuTu}</Title>
+              <Text strong>Họ tên: {formData.ho_ten || 'N/A'}</Text><br />
+              <Text>Khoa tiếp nhận: {departments.find((d) => d.id === formData.khoa_id)?.name || 'N/A'}</Text><br />
+              <Text>Ngày khám: {dayjs().format('DD/MM/YYYY HH:mm')}</Text>
+            </div>
           </Modal>
         </Card>
       </Spin>
