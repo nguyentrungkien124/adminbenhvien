@@ -86,6 +86,8 @@ interface Appointment {
   source: string;
   source_id: number;
   created_at: string;
+  ket_qua_kham?: string | null;
+  loai_dieu_tri?: string;
 }
 
 const Letan: React.FC = () => {
@@ -174,17 +176,18 @@ const Letan: React.FC = () => {
           params: {
             so_dien_thoai: user.so_dien_thoai,
             ngay_kham: ngay_kham,
-            source: 'online', // Chỉ lấy lịch hẹn trực tuyến
+            source: 'online',
           },
         });
 
         if (appointmentResponse.data.appointment) {
           const appt = appointmentResponse.data.appointment;
           const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
-          const isPending = appt.status === 0; // 0: chưa khám
+          // Chấp nhận status: 0 (chưa khám) hoặc 1 (đã xác nhận nhưng chưa khám, ket_qua_kham: null)
+          const isPending = appt.status === 0 || (appt.status === 1 && !appt.ket_qua_kham);
 
           setFormData((prev) => ({ ...prev, source: appt.source }));
-          if (isToday && isPending && appt.source === 'online') { // Đảm bảo source là 'online'
+          if (isToday && isPending && appt.source === 'online') {
             setAppointment(appt);
             if (appt.source === 'online') {
               setIsConfirming(true);
@@ -240,14 +243,15 @@ const Letan: React.FC = () => {
         params: {
           so_dien_thoai: user.so_dien_thoai,
           ngay_kham: ngay_kham,
-          source: 'online', // Chỉ lấy lịch hẹn trực tuyến
+          source: 'online',
         },
       });
 
       if (appointmentResponse.data.appointment) {
         const appt = appointmentResponse.data.appointment;
         const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
-        const isPending = appt.status === 0;
+        // Chấp nhận status: 0 (chưa khám) hoặc 1 (đã xác nhận nhưng chưa khám, ket_qua_kham: null)
+        const isPending = appt.status === 0 || (appt.status === 1 && !appt.ket_qua_kham);
 
         setFormData((prev) => ({ ...prev, source: appt.source }));
         if (isToday && isPending && appt.source === 'online') {

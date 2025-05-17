@@ -206,18 +206,18 @@
 //     try {
 //       setLoading(true);
 //       await axios.put(`http://localhost:9999/api/letan/nhan-lich/${appointmentId}/${bacSiId}`);
-      
+
 //       // Update local state
 //       const updatedAppointments = appointments.map((appt) =>
 //         appt.id === appointmentId ? { ...appt, bac_si_id: bacSiId, status: 1 } : appt
 //       );
 //       setAppointments(updatedAppointments);
-      
+
 //       // Update statistics
 //       const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
 //       const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
 //       setStats({ ...stats, pending, received });
-      
+
 //       message.success('Nhận lịch khám thành công!');
 //     } catch (error) {
 //       console.error('Error accepting appointment:', error);
@@ -239,17 +239,17 @@
 //       await axios.put(`http://localhost:9999/api/letan/chuyen-khoa/${selectedAppointmentId}`, {
 //         khoa_id: parseInt(selectedKhoaId),
 //       });
-      
+
 //       // Update local state
 //       const updatedAppointments = appointments.filter((appt) => appt.id !== selectedAppointmentId);
 //       setAppointments(updatedAppointments);
-      
+
 //       // Update statistics
 //       const total = updatedAppointments.length;
 //       const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
 //       const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
 //       setStats({ total, pending, received });
-      
+
 //       message.success('Chuyển khoa thành công');
 //       setIsModalVisible(false);
 //       setSelectedKhoaId('');
@@ -282,7 +282,7 @@
 //         appt.id === selectedAppointmentId ? { ...appt, ket_qua_kham: ketQuaKham } : appt
 //       );
 //       setAppointments(updatedAppointments);
-      
+
 //       message.success('Lưu kết luận thành công');
 //       setIsKetLuanModalVisible(false);
 //       setKetQuaKham('');
@@ -652,7 +652,7 @@
 //             </Card>
 //           </>
 //         )}
-        
+
 //         <Form layout="vertical">
 //           <Form.Item
 //             label={
@@ -682,7 +682,7 @@
 //             </Select>
 //           </Form.Item>
 //         </Form>
-        
+
 //         <div style={{ marginTop: 16 }}>
 //           <Tag color="orange" icon={<BellOutlined />}>
 //             Lưu ý: Sau khi chuyển khoa, lịch hẹn sẽ được chuyển sang danh sách của khoa mới
@@ -768,7 +768,7 @@ import {
   Avatar,
   Tabs,
   Input as AntInput,
-  Radio
+  Radio,
 } from 'antd';
 import {
   SearchOutlined,
@@ -786,7 +786,8 @@ import {
   CalendarOutlined,
   HomeOutlined,
   FileTextOutlined,
-  SolutionOutlined
+  SolutionOutlined,
+  PlusCircleOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -814,6 +815,7 @@ interface Appointment {
   chuyen_khoa_ghi_chu: string | null;
   loai_dieu_tri: 'noi_tru' | 'ngoai_tru' | 'chua_quyet_dinh' | null;
   is_admitted: boolean;
+  hasPrescription?: boolean;
 }
 
 interface Department {
@@ -832,19 +834,38 @@ interface Bed {
   ma_giuong: string;
 }
 
+interface Kho {
+  kho_id: number;
+  ten_san_pham: string;
+  don_vi_tinh: string;
+}
+
 interface AppointmentStats {
   total: number;
   pending: number;
   received: number;
 }
 
+interface ChiDinhThuoc {
+  id: number;
+  kho_id: number;
+  ten_thuoc: string;
+  don_vi: string;
+  so_luong: number;
+  lieu_luong: string;
+  tan_suat: string;
+  ngay_chi_dinh: string;
+  nguoi_chi_dinh: string;
+  thanh_tien: number;
+}
+
 const KhamLamSan: React.FC = () => {
-  // State
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
+  const [khoList, setKhoList] = useState<Kho[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchText, setSearchText] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -852,6 +873,8 @@ const KhamLamSan: React.FC = () => {
   const [isKetLuanModalVisible, setIsKetLuanModalVisible] = useState<boolean>(false);
   const [isPhanLoaiModalVisible, setIsPhanLoaiModalVisible] = useState<boolean>(false);
   const [isXepGiuongModalVisible, setIsXepGiuongModalVisible] = useState<boolean>(false);
+  const [isChiDinhThuocModalVisible, setIsChiDinhThuocModalVisible] = useState<boolean>(false);
+  const [isDonThuocModalVisible, setIsDonThuocModalVisible] = useState<boolean>(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
   const [selectedKhoaId, setSelectedKhoaId] = useState<string>('');
   const [chuyenKhoaGhiChu, setChuyenKhoaGhiChu] = useState<string>('');
@@ -865,39 +888,61 @@ const KhamLamSan: React.FC = () => {
   const [ketLuanLoading, setKetLuanLoading] = useState<boolean>(false);
   const [phanLoaiLoading, setPhanLoaiLoading] = useState<boolean>(false);
   const [xepGiuongLoading, setXepGiuongLoading] = useState<boolean>(false);
+  const [chiDinhThuocLoading, setChiDinhThuocLoading] = useState<boolean>(false);
   const [activeTabKey, setActiveTabKey] = useState<string>('all');
+  const [chiDinhThuocForm] = Form.useForm();
+  const [donThuocData, setDonThuocData] = useState<ChiDinhThuoc[]>([]);
 
-  // Lấy thông tin từ session
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
   const bacSiId = user.bac_si_id;
   const khoaName = user.khoa_name || 'Tim mạch';
 
-  // Lấy dữ liệu lịch hẹn, khoa, phòng, và giường
+  const checkHasPrescription = async (appointmentId: number): Promise<boolean> => {
+    try {
+      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
+      const hasPrescription = !!response.data.data; // Sửa ở đây: Chỉ kiểm tra sự tồn tại của dữ liệu
+      console.log(`checkHasPrescription for appointment ${appointmentId}: ${hasPrescription}, data:`, response.data.data);
+      console.log(`ok`, appointmentId);
+      return hasPrescription;
+    } catch (error) {
+      console.error(`Error checking prescription for appointment ${appointmentId}:`, error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [appointmentsRes, departmentsRes, roomsRes, bedsRes] = await Promise.all([
+        const [appointmentsRes, departmentsRes, roomsRes, bedsRes, khoRes] = await Promise.all([
           axios.get(`http://localhost:9999/api/letan/appointments?khoa_id=${khoaId}`),
           axios.get('http://localhost:9999/api/khoa/getall'),
           axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
-          axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`)
+          axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`),
+          axios.get(`http://localhost:9999/api/noitru/kho`),
         ]);
 
-        const data = appointmentsRes.data.data.map((appt: any) => ({
+        const appointmentsData = appointmentsRes.data.data;
+        const prescriptionChecks = await Promise.all(
+          appointmentsData.map((appt: any) => checkHasPrescription(appt.id).catch(() => false))
+        );
+
+        const data = appointmentsData.map((appt: any, index: number) => ({
           ...appt,
           bac_si_id: appt.bac_si_id === null ? null : appt.bac_si_id,
           status: Number(appt.status),
           ket_qua_kham: appt.ket_qua_kham || null,
           chuyen_khoa_ghi_chu: appt.chuyen_khoa_ghi_chu || null,
           loai_dieu_tri: appt.loai_dieu_tri || 'chua_quyet_dinh',
-          is_admitted: !!appt.is_admitted
+          is_admitted: !!appt.is_admitted,
+          hasPrescription: prescriptionChecks[index] ?? false,
         }));
 
+        data.forEach((appt: Appointment) => console.log(`Initial Appointment ${appt.id}: hasPrescription = ${appt.hasPrescription}, loai_dieu_tri = ${appt.loai_dieu_tri}`));
         setAppointments(data);
         setFilteredAppointments(data);
-        console.log('Fetched appointments:', data);
+        console.log('Fetched appointments with prescription status:', data);
 
         const total = data.length;
         const pending = data.filter((app: Appointment) => app.status === 0).length;
@@ -915,7 +960,7 @@ const KhamLamSan: React.FC = () => {
 
         const fetchedRooms = roomsRes.data.map((room: any) => ({
           id: room.id,
-          ten_phong: room.ten_phong
+          ten_phong: room.ten_phong,
         }));
         console.log('Fetched rooms:', fetchedRooms);
         setRooms(fetchedRooms);
@@ -923,10 +968,18 @@ const KhamLamSan: React.FC = () => {
         const fetchedBeds = bedsRes.data.map((bed: any) => ({
           id: bed.id,
           room_id: bed.room_id,
-          ma_giuong: bed.ma_giuong
+          ma_giuong: bed.ma_giuong,
         }));
         console.log('Fetched beds:', fetchedBeds);
         setBeds(fetchedBeds);
+
+        const fetchedKho = [{
+          kho_id: khoRes.data.data.kho_id,
+          ten_san_pham: khoRes.data.data.ten_san_pham,
+          don_vi_tinh: khoRes.data.data.don_vi_tinh || 'Không có đơn vị tính',
+        }];
+        console.log('Fetched kho:', fetchedKho);
+        setKhoList(fetchedKho);
 
         if (data.length === 0) {
           message.info('Không có lịch hẹn nào trong khoa');
@@ -946,7 +999,6 @@ const KhamLamSan: React.FC = () => {
     }
   }, [khoaId]);
 
-  // Filter appointments
   useEffect(() => {
     let filtered = appointments;
 
@@ -975,7 +1027,6 @@ const KhamLamSan: React.FC = () => {
     setFilteredAppointments(filtered);
   }, [searchText, statusFilter, appointments, activeTabKey]);
 
-  // Handle accepting an appointment
   const handleNhanLich = async (appointmentId: number) => {
     if (!bacSiId) {
       message.error('Không tìm thấy thông tin bác sĩ. Vui lòng đăng nhập lại.');
@@ -985,17 +1036,17 @@ const KhamLamSan: React.FC = () => {
     try {
       setLoading(true);
       console.log('Calling API nhan-lich:', { appointmentId, bacSiId, khoaId });
-      await axios.put(`http://localhost:9999/api/doctor/nhan-lich/${appointmentId}/${bacSiId}`);
-      
+      await axios.put(`http://localhost:9999/api/letan/nhan-lich/${appointmentId}/${bacSiId}`);
+
       const updatedAppointments = appointments.map((appt) =>
         appt.id === appointmentId ? { ...appt, bac_si_id: bacSiId, status: 1 } : appt
       );
       setAppointments(updatedAppointments);
-      
+
       const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
       const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
       setStats({ ...stats, pending, received });
-      
+
       message.success('Nhận lịch khám thành công!');
     } catch (error: any) {
       console.error('Error accepting appointment:', error);
@@ -1005,7 +1056,6 @@ const KhamLamSan: React.FC = () => {
     }
   };
 
-  // Handle department transfer
   const handleChuyenKhoa = async () => {
     if (!selectedAppointmentId || !selectedKhoaId) {
       message.error('Vui lòng chọn khoa để chuyển');
@@ -1017,17 +1067,17 @@ const KhamLamSan: React.FC = () => {
       console.log('Calling API chuyen-khoa:', { selectedAppointmentId, selectedKhoaId, chuyenKhoaGhiChu });
       await axios.put(`http://localhost:9999/api/letan/chuyen-khoa/${selectedAppointmentId}`, {
         khoa_id: parseInt(selectedKhoaId),
-        ghi_chu: chuyenKhoaGhiChu
+        ghi_chu: chuyenKhoaGhiChu,
       });
-      
+
       const updatedAppointments = appointments.filter((appt) => appt.id !== selectedAppointmentId);
       setAppointments(updatedAppointments);
-      
+
       const total = updatedAppointments.length;
       const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
       const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
       setStats({ total, pending, received });
-      
+
       message.success('Chuyển khoa thành công');
       setIsModalVisible(false);
       setSelectedKhoaId('');
@@ -1042,7 +1092,6 @@ const KhamLamSan: React.FC = () => {
     }
   };
 
-  // Handle save conclusion
   const handleLuuKetLuan = async () => {
     if (!selectedAppointmentId || !ketQuaKham.trim()) {
       message.error('Vui lòng nhập kết luận khám');
@@ -1061,7 +1110,7 @@ const KhamLamSan: React.FC = () => {
         appt.id === selectedAppointmentId ? { ...appt, ket_qua_kham: ketQuaKham } : appt
       );
       setAppointments(updatedAppointments);
-      
+
       message.success('Lưu kết luận thành công');
       setIsKetLuanModalVisible(false);
       setKetQuaKham('');
@@ -1075,7 +1124,6 @@ const KhamLamSan: React.FC = () => {
     }
   };
 
-  // Handle classify treatment
   const handlePhanLoaiDieuTri = async () => {
     if (!selectedAppointmentId || !loaiDieuTri) {
       message.error('Vui lòng chọn loại điều trị');
@@ -1085,7 +1133,7 @@ const KhamLamSan: React.FC = () => {
     try {
       setPhanLoaiLoading(true);
       console.log('Calling API phan-loai-dieu-tri:', { selectedAppointmentId, loaiDieuTri, bacSiId });
-      const response = await axios.put(`http://localhost:9999/api/doctor/phan-loai-dieu-tri/${selectedAppointmentId}`, {
+      const response = await axios.put(`http://localhost:9999/api/letan/phan-loai-dieu-tri/${selectedAppointmentId}`, {
         loai_dieu_tri: loaiDieuTri,
         bac_si_id: bacSiId,
       });
@@ -1097,7 +1145,7 @@ const KhamLamSan: React.FC = () => {
           : appt
       );
       setAppointments(updatedAppointments);
-      
+
       message.success('Phân loại điều trị thành công');
       setIsPhanLoaiModalVisible(false);
       setLoaiDieuTri(null);
@@ -1111,7 +1159,6 @@ const KhamLamSan: React.FC = () => {
     }
   };
 
-  // Handle assign bed
   const handleXepGiuong = async () => {
     if (!selectedAppointmentId || !selectedBedId) {
       message.error('Vui lòng chọn giường');
@@ -1125,7 +1172,7 @@ const KhamLamSan: React.FC = () => {
         appointment_id: selectedAppointmentId,
         khach_hang_id: selectedAppointment?.khach_hang_id,
         bac_si_id: bacSiId,
-        bed_id: selectedBedId
+        bed_id: selectedBedId,
       });
       console.log('API admissions response:', admissionResponse.data);
 
@@ -1134,12 +1181,11 @@ const KhamLamSan: React.FC = () => {
         throw new Error('Không nhận được admission_id từ API admissions');
       }
 
-      // Gọi API chi-phi-giuong để ghi nhận chi phí giường
       console.log('Calling API chi-phi-giuong:', { admission_id: admissionId, bed_id: selectedBedId, ngay: dayjs().format('YYYY-MM-DD') });
       await axios.post(`http://localhost:9999/api/noitru/chi-phi-giuong`, {
         admission_id: admissionId,
         bed_id: selectedBedId,
-        ngay: dayjs().format('YYYY-MM-DD')
+        ngay: dayjs().format('YYYY-MM-DD'),
       });
       console.log('API chi-phi-giuong response: Chi phí giường ghi nhận thành công');
 
@@ -1147,7 +1193,7 @@ const KhamLamSan: React.FC = () => {
         appt.id === selectedAppointmentId ? { ...appt, is_admitted: true } : appt
       );
       setAppointments(updatedAppointments);
-      
+
       message.success('Xếp giường và ghi nhận chi phí giường thành công');
       setIsXepGiuongModalVisible(false);
       setSelectedBedId(null);
@@ -1155,14 +1201,13 @@ const KhamLamSan: React.FC = () => {
       setSelectedAppointmentId(null);
       setSelectedAppointment(null);
 
-      // Refresh bed and room list
       const [roomsRes, bedsRes] = await Promise.all([
         axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
-        axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`)
+        axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`),
       ]);
       const fetchedRooms = roomsRes.data.map((room: any) => ({
         id: room.id,
-        ten_phong: room.ten_phong
+        ten_phong: room.ten_phong,
       }));
       console.log('Refreshed rooms:', fetchedRooms);
       setRooms(fetchedRooms);
@@ -1170,7 +1215,7 @@ const KhamLamSan: React.FC = () => {
       const fetchedBeds = bedsRes.data.map((bed: any) => ({
         id: bed.id,
         room_id: bed.room_id,
-        ma_giuong: bed.ma_giuong
+        ma_giuong: bed.ma_giuong,
       }));
       console.log('Refreshed beds:', fetchedBeds);
       setBeds(fetchedBeds);
@@ -1182,16 +1227,72 @@ const KhamLamSan: React.FC = () => {
     }
   };
 
-  // Show modals
+  const handleChiDinhThuoc = async (values: any) => {
+    console.log('handleChiDinhThuoc triggered with values:', values);
+    if (!selectedAppointmentId) {
+      message.error('Không tìm thấy thông tin lịch hẹn. Vui lòng thử lại.');
+      return;
+    }
+
+    try {
+      setChiDinhThuocLoading(true);
+      const data = {
+        admission_id: null,
+        appointment_id: selectedAppointmentId,
+        kho_id: values.kho_id,
+        so_luong: Number(values.so_luong),
+        lieu_luong: values.lieu_luong,
+        tan_suat: values.tan_suat,
+        nguoi_chi_dinh_id: bacSiId,
+      };
+      console.log('Calling API /api/noitru/chi-dinh-thuoc with data:', data);
+      const response = await axios.post('http://localhost:9999/api/noitru/chi-dinh-thuoc', data);
+      console.log('API response:', response.data);
+
+      // Làm mới dữ liệu
+      const [appointmentsRes] = await Promise.all([
+        axios.get(`http://localhost:9999/api/letan/appointments?khoa_id=${khoaId}`),
+      ]);
+      const appointmentsData = appointmentsRes.data.data;
+      const prescriptionChecks = await Promise.all(
+        appointmentsData.map((appt: any) => checkHasPrescription(appt.id).catch(() => false))
+      );
+      const updatedData = appointmentsData.map((appt: any, index: number) => ({
+        ...appt,
+        bac_si_id: appt.bac_si_id === null ? null : appt.bac_si_id,
+        status: Number(appt.status),
+        ket_qua_kham: appt.ket_qua_kham || null,
+        chuyen_khoa_ghi_chu: appt.chuyen_khoa_ghi_chu || null,
+        loai_dieu_tri: appt.loai_dieu_tri || 'chua_quyet_dinh',
+        is_admitted: !!appt.is_admitted,
+        hasPrescription: prescriptionChecks[index] ?? false,
+      }));
+      updatedData.forEach((appt: Appointment) => console.log(`Updated Appointment ${appt.id}: hasPrescription = ${appt.hasPrescription}, loai_dieu_tri = ${appt.loai_dieu_tri}`));
+      setAppointments(updatedData);
+      setFilteredAppointments(updatedData);
+
+      message.success(response.data.message || 'Chỉ định thuốc thành công');
+      setIsChiDinhThuocModalVisible(false);
+      chiDinhThuocForm.resetFields();
+      setSelectedAppointmentId(null);
+      setSelectedAppointment(null);
+    } catch (error: any) {
+      console.error('Error prescribing medicine:', error);
+      message.error(error.response?.data?.message || 'Có lỗi khi kê đơn thuốc. Vui lòng thử lại.');
+    } finally {
+      setChiDinhThuocLoading(false);
+    }
+  };
+
   const showChuyenKhoaModal = (appointmentId: number) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setIsModalVisible(true);
   };
 
   const showKetLuanModal = (appointmentId: number, currentKetQua: string | null) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setKetQuaKham(currentKetQua || '');
@@ -1199,7 +1300,7 @@ const KhamLamSan: React.FC = () => {
   };
 
   const showPhanLoaiModal = (appointmentId: number) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setLoaiDieuTri(appt?.loai_dieu_tri || null);
@@ -1207,13 +1308,36 @@ const KhamLamSan: React.FC = () => {
   };
 
   const showXepGiuongModal = (appointmentId: number) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setIsXepGiuongModalVisible(true);
   };
 
-  // Close modals
+  const showChiDinhThuocModal = (appointmentId: number) => {
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
+    setSelectedAppointment(appt);
+    setSelectedAppointmentId(appointmentId);
+    setIsChiDinhThuocModalVisible(true);
+  };
+
+  const showDonThuocModal = async (appointmentId: number) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
+      // Chuyển object thành mảng để hiển thị trong Table
+      const data = response.data.data ? [response.data.data] : [];
+      setDonThuocData(data);
+      console.log(`DonThuocModal data for appointment ${appointmentId}:`, data);
+      setIsDonThuocModalVisible(true);
+    } catch (error: any) {
+      console.error('Error fetching don thuoc:', error);
+      message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancel = () => {
     setIsModalVisible(false);
     setSelectedKhoaId('');
@@ -1244,17 +1368,21 @@ const KhamLamSan: React.FC = () => {
     setSelectedAppointment(null);
   };
 
-  // Format date
+  const handleCancelChiDinhThuoc = () => {
+    setIsChiDinhThuocModalVisible(false);
+    chiDinhThuocForm.resetFields();
+    setSelectedAppointmentId(null);
+    setSelectedAppointment(null);
+  };
+
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format('DD/MM/YYYY HH:mm');
   };
 
-  // Handle tab change
   const handleTabChange = (key: string) => {
     setActiveTabKey(key);
   };
 
-  // Get status tag
   const getStatusTag = (status: number) => {
     if (status === 0) {
       return <Tag color="orange" icon={<ClockCircleOutlined />}>Chưa nhận</Tag>;
@@ -1262,7 +1390,6 @@ const KhamLamSan: React.FC = () => {
     return <Tag color="green" icon={<CheckCircleOutlined />}>Đã nhận</Tag>;
   };
 
-  // Get insurance tag
   const getInsuranceTag = (hasInsurance: boolean | null, insuranceNumber: string) => {
     if (hasInsurance) {
       return (
@@ -1276,7 +1403,6 @@ const KhamLamSan: React.FC = () => {
     return <Tag color="default">Không có BHYT</Tag>;
   };
 
-  // Get treatment type tag
   const getLoaiDieuTriTag = (loai_dieu_tri: string | null) => {
     if (loai_dieu_tri === 'noi_tru') {
       return <Tag color="purple">Nội trú</Tag>;
@@ -1286,7 +1412,6 @@ const KhamLamSan: React.FC = () => {
     return <Tag color="default">Chưa quyết định</Tag>;
   };
 
-  // Table columns
   const columns = [
     {
       title: 'Mã',
@@ -1368,62 +1493,122 @@ const KhamLamSan: React.FC = () => {
       title: 'Hành động',
       key: 'action',
       width: 350,
-      render: (_: any, record: Appointment) => (
-        <Space>
-          {record.status === 0 && record.bac_si_id === null && (
-            <Button
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              size="middle"
-              onClick={() => handleNhanLich(record.id)}
-            >
-              Nhận lịch
-            </Button>
-          )}
-          {record.status === 1 && record.bac_si_id === bacSiId && (
-            <>
+      render: (_: any, record: Appointment) => {
+        console.log(`Render Action for Appointment ${record.id}: hasPrescription = ${record.hasPrescription}, loai_dieu_tri = ${record.loai_dieu_tri}`);
+        return (
+          <Space>
+            {record.status === 0 && record.bac_si_id === null && (
               <Button
-                type="default"
-                icon={<FileTextOutlined />}
+                type="primary"
+                icon={<CheckCircleOutlined />}
                 size="middle"
-                onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
+                onClick={() => handleNhanLich(record.id)}
               >
-                Kết luận
+                Nhận lịch
               </Button>
-              {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
+            )}
+            {record.status === 1 && record.bac_si_id === bacSiId && (
+              <>
                 <Button
                   type="default"
-                  icon={<SolutionOutlined />}
+                  icon={<FileTextOutlined />}
                   size="middle"
-                  onClick={() => showPhanLoaiModal(record.id)}
+                  onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
                 >
-                  Phân loại
+                  Kết luận
                 </Button>
-              )}
-              {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
-                <Button
-                  type="default"
-                  icon={<MedicineBoxOutlined />}
-                  size="middle"
-                  onClick={() => showXepGiuongModal(record.id)}
-                >
-                  Xếp giường
-                </Button>
-              )}
-            </>
-          )}
-          <Button 
-            type="default"
-            icon={<SwapOutlined />}
-            size="middle"
-            onClick={() => showChuyenKhoaModal(record.id)}
-          >
-            Chuyển khoa
-          </Button>
-        </Space>
-      ),
+                {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
+                  <Button
+                    type="default"
+                    icon={<SolutionOutlined />}
+                    size="middle"
+                    onClick={() => showPhanLoaiModal(record.id)}
+                  >
+                    Phân loại
+                  </Button>
+                )}
+                {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
+                  <Button
+                    type="default"
+                    icon={<MedicineBoxOutlined />}
+                    size="middle"
+                    onClick={() => showXepGiuongModal(record.id)}
+                  >
+                    Xếp giường
+                  </Button>
+                )}
+                {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
+                  <Button
+                    type="default"
+                    icon={<PlusCircleOutlined />}
+                    size="middle"
+                    onClick={() => showChiDinhThuocModal(record.id)}
+                  >
+                    Kê đơn thuốc
+                  </Button>
+                )}
+                {record.hasPrescription && record.loai_dieu_tri === 'ngoai_tru' && (
+                  <Button
+                    type="default"
+                    icon={<FileSearchOutlined />}
+                    size="middle"
+                    onClick={() => showDonThuocModal(record.id)}
+                  >
+                    Xem các thuốc đã kê + giá tiền
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              type="default"
+              icon={<SwapOutlined />}
+              size="middle"
+              onClick={() => showChuyenKhoaModal(record.id)}
+            >
+              Chuyển khoa
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
+
+  const DonThuocModal = (
+    <Modal
+      title={
+        <Space>
+          <FileSearchOutlined style={{ color: '#1890ff' }} />
+          <span>Xem các thuốc đã kê + giá tiền</span>
+        </Space>
+      }
+      open={isDonThuocModalVisible}
+      onCancel={() => setIsDonThuocModalVisible(false)}
+      footer={null}
+      width={800}
+    >
+      <Spin spinning={loading}>
+        {donThuocData.length === 0 ? (
+          <Empty description="Không có đơn thuốc nào" />
+        ) : (
+          <Table
+            columns={[
+              { title: 'Tên thuốc', dataIndex: 'ten_thuoc', key: 'ten_thuoc' },
+              { title: 'Đơn vị', dataIndex: 'don_vi', key: 'don_vi' },
+              { title: 'Số lượng', dataIndex: 'so_luong', key: 'so_luong' },
+              { title: 'Liều lượng', dataIndex: 'lieu_luong', key: 'lieu_luong' },
+              { title: 'Tần suất', dataIndex: 'tan_suat', key: 'tan_suat' },
+              { title: 'Tổng tiền', dataIndex: 'thanh_tien', key: 'thanh_tien', render: (text) => `${text} VNĐ` },
+              { title: 'Ngày chỉ định', dataIndex: 'ngay_chi_dinh', key: 'ngay_chi_dinh' },
+              { title: 'Người chỉ định', dataIndex: 'nguoi_chi_dinh', key: 'nguoi_chi_dinh' },
+            ]}
+            dataSource={donThuocData}
+            rowKey="id"
+            pagination={false}
+          />
+        )}
+      </Spin>
+    </Modal>
+  );
 
   return (
     <div className="appointment-manager" style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
@@ -1507,31 +1692,37 @@ const KhamLamSan: React.FC = () => {
             </Row>
 
             <Tabs activeKey={activeTabKey} onChange={handleTabChange} size="large">
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><FileSearchOutlined /> Tất cả ({stats.total})</span>
-                } 
+                  <span>
+                    <FileSearchOutlined /> Tất cả ({stats.total})
+                  </span>
+                }
                 key="all"
               />
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><ClockCircleOutlined /> Chưa nhận ({stats.pending})</span>
-                } 
+                  <span>
+                    <ClockCircleOutlined /> Chưa nhận ({stats.pending})
+                  </span>
+                }
                 key="pending"
               />
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><CheckCircleOutlined /> Đã nhận ({stats.received})</span>
-                } 
+                  <span>
+                    <CheckCircleOutlined /> Đã nhận ({stats.received})
+                  </span>
+                }
                 key="received"
               />
             </Tabs>
 
             <Spin spinning={loading}>
               {filteredAppointments.length === 0 ? (
-                <Empty 
-                  description="Không có lịch hẹn nào" 
-                  image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                <Empty
+                  description="Không có lịch hẹn nào"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
                   style={{ margin: '40px 0' }}
                 />
               ) : (
@@ -1539,11 +1730,11 @@ const KhamLamSan: React.FC = () => {
                   columns={columns}
                   dataSource={filteredAppointments}
                   rowKey="id"
-                  pagination={{ 
+                  pagination={{
                     pageSize: 10,
                     showSizeChanger: true,
                     showTotal: (total) => `Tổng cộng ${total} lịch hẹn`,
-                    showQuickJumper: true
+                    showQuickJumper: true,
                   }}
                   bordered
                   size="middle"
@@ -1555,7 +1746,6 @@ const KhamLamSan: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Modal Chuyển Khoa */}
       <Modal
         title={
           <Space>
@@ -1563,7 +1753,7 @@ const KhamLamSan: React.FC = () => {
             <span>Chuyển khoa cho bệnh nhân</span>
           </Space>
         }
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleChuyenKhoa}
         onCancel={handleCancel}
         okText="Xác nhận chuyển"
@@ -1593,7 +1783,7 @@ const KhamLamSan: React.FC = () => {
               </Space>
             </Card>
 
-            <Card 
+            <Card
               title={
                 <Space>
                   <InfoCircleOutlined style={{ color: '#fa8c16' }} />
@@ -1607,7 +1797,7 @@ const KhamLamSan: React.FC = () => {
             </Card>
 
             {selectedAppointment.ket_qua_kham && (
-              <Card 
+              <Card
                 title={
                   <Space>
                     <FileTextOutlined style={{ color: '#1890ff' }} />
@@ -1622,7 +1812,7 @@ const KhamLamSan: React.FC = () => {
             )}
           </>
         )}
-        
+
         <Form layout="vertical">
           <Form.Item
             label={
@@ -1651,9 +1841,7 @@ const KhamLamSan: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item
-            label="Ghi chú chuyển khoa"
-          >
+          <Form.Item label="Ghi chú chuyển khoa">
             <TextArea
               rows={3}
               value={chuyenKhoaGhiChu}
@@ -1662,7 +1850,7 @@ const KhamLamSan: React.FC = () => {
             />
           </Form.Item>
         </Form>
-        
+
         <div style={{ marginTop: 16 }}>
           <Tag color="orange" icon={<BellOutlined />}>
             Lưu ý: Sau khi chuyển khoa, lịch hẹn sẽ được chuyển sang danh sách của khoa mới
@@ -1670,7 +1858,6 @@ const KhamLamSan: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal Kết luận */}
       <Modal
         title={
           <Space>
@@ -1678,7 +1865,7 @@ const KhamLamSan: React.FC = () => {
             <span>Nhập kết luận khám</span>
           </Space>
         }
-        visible={isKetLuanModalVisible}
+        open={isKetLuanModalVisible}
         onOk={handleLuuKetLuan}
         onCancel={handleCancelKetLuan}
         okText="Xác nhận"
@@ -1728,7 +1915,6 @@ const KhamLamSan: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Modal Phân loại điều trị */}
       <Modal
         title={
           <Space>
@@ -1736,7 +1922,7 @@ const KhamLamSan: React.FC = () => {
             <span>Phân loại điều trị</span>
           </Space>
         }
-        visible={isPhanLoaiModalVisible}
+        open={isPhanLoaiModalVisible}
         onOk={handlePhanLoaiDieuTri}
         onCancel={handleCancelPhanLoai}
         okText="Xác nhận"
@@ -1774,10 +1960,7 @@ const KhamLamSan: React.FC = () => {
             validateStatus={!loaiDieuTri && isPhanLoaiModalVisible ? 'error' : ''}
             help={!loaiDieuTri && isPhanLoaiModalVisible ? 'Vui lòng chọn loại điều trị' : ''}
           >
-            <Radio.Group
-              value={loaiDieuTri}
-              onChange={(e) => setLoaiDieuTri(e.target.value)}
-            >
+            <Radio.Group value={loaiDieuTri} onChange={(e) => setLoaiDieuTri(e.target.value)}>
               <Radio value="noi_tru">Nội trú (Nhập viện)</Radio>
               <Radio value="ngoai_tru">Ngoại trú (Về nhà)</Radio>
             </Radio.Group>
@@ -1785,7 +1968,6 @@ const KhamLamSan: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Modal Xếp giường */}
       <Modal
         title={
           <Space>
@@ -1793,7 +1975,7 @@ const KhamLamSan: React.FC = () => {
             <span>Xếp giường cho bệnh nhân</span>
           </Space>
         }
-        visible={isXepGiuongModalVisible}
+        open={isXepGiuongModalVisible}
         onOk={handleXepGiuong}
         onCancel={handleCancelXepGiuong}
         okText="Xác nhận"
@@ -1878,6 +2060,95 @@ const KhamLamSan: React.FC = () => {
           </Tag>
         </div>
       </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <PlusCircleOutlined style={{ color: '#1890ff' }} />
+            <span>Kê đơn thuốc</span>
+          </Space>
+        }
+        open={isChiDinhThuocModalVisible}
+        onOk={() => chiDinhThuocForm.submit()}
+        onCancel={handleCancelChiDinhThuoc}
+        okText="Xác nhận"
+        cancelText="Hủy"
+        confirmLoading={chiDinhThuocLoading}
+        width={600}
+      >
+        {selectedAppointment && (
+          <>
+            <Card bordered={false} style={{ marginBottom: 16 }}>
+              <Space align="start">
+                <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                <div>
+                  <Title level={4}>{selectedAppointment.ho_ten}</Title>
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary">
+                      <PhoneOutlined /> {selectedAppointment.so_dien_thoai}
+                    </Text>
+                    <Text type="secondary">
+                      <InfoCircleOutlined /> {selectedAppointment.trieu_chung}
+                    </Text>
+                    <Text type="secondary">
+                      <FileTextOutlined /> Kết luận: {selectedAppointment.ket_qua_kham}
+                    </Text>
+                  </Space>
+                </div>
+              </Space>
+            </Card>
+          </>
+        )}
+        <Form
+          form={chiDinhThuocForm}
+          layout="vertical"
+          onFinish={handleChiDinhThuoc}
+          onFinishFailed={(errorInfo) => {
+            console.log('Form validation failed:', errorInfo);
+          }}
+        >
+          <Form.Item
+            name="kho_id"
+            label="Chọn thuốc"
+            rules={[{ required: true, message: 'Vui lòng chọn thuốc!' }]}
+          >
+            <Select placeholder="Chọn thuốc từ kho" size="large">
+              {khoList.map((kho) => (
+                <Option key={kho.kho_id} value={kho.kho_id}>
+                  {kho.ten_san_pham} ({kho.don_vi_tinh})
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="so_luong"
+            label="Số lượng"
+            rules={[
+              { required: true, message: 'Vui lòng nhập số lượng!' },
+              { type: 'number', min: 1, message: 'Số lượng phải lớn hơn 0!' },
+            ]}
+            normalize={(value) => (value ? Number(value) : value)}
+          >
+            <Input type="number" placeholder="Nhập số lượng" size="large" />
+          </Form.Item>
+          <Form.Item
+            name="lieu_luong"
+            label="Liều lượng"
+            rules={[{ required: true, message: 'Vui lòng nhập liều lượng!' }]}
+          >
+            <Input placeholder="Nhập liều lượng (ví dụ: 1 viên/lần)" size="large" />
+          </Form.Item>
+          <Form.Item
+            name="tan_suat"
+            label="Tần suất"
+            rules={[{ required: true, message: 'Vui lòng nhập tần suất!' }]}
+          >
+            <Input placeholder="Nhập tần suất (ví dụ: 2 lần/ngày)" size="large" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {DonThuocModal}
     </div>
   );
 };
