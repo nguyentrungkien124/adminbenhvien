@@ -856,7 +856,6 @@ interface ChiDinhThuoc {
   tan_suat: string;
   ngay_chi_dinh: string;
   nguoi_chi_dinh: string;
-  thanh_tien: number;
 }
 
 const KhamLamSan: React.FC = () => {
@@ -892,6 +891,7 @@ const KhamLamSan: React.FC = () => {
   const [activeTabKey, setActiveTabKey] = useState<string>('all');
   const [chiDinhThuocForm] = Form.useForm();
   const [donThuocData, setDonThuocData] = useState<ChiDinhThuoc[]>([]);
+  const [totalCost, setTotalCost] = useState<number | null>(null);
 
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
@@ -901,9 +901,8 @@ const KhamLamSan: React.FC = () => {
   const checkHasPrescription = async (appointmentId: number): Promise<boolean> => {
     try {
       const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
-      const hasPrescription = !!response.data.data; // Sửa ở đây: Chỉ kiểm tra sự tồn tại của dữ liệu
+      const hasPrescription = !!response.data.data;
       console.log(`checkHasPrescription for appointment ${appointmentId}: ${hasPrescription}, data:`, response.data.data);
-      console.log(`ok`, appointmentId);
       return hasPrescription;
     } catch (error) {
       console.error(`Error checking prescription for appointment ${appointmentId}:`, error);
@@ -973,11 +972,13 @@ const KhamLamSan: React.FC = () => {
         console.log('Fetched beds:', fetchedBeds);
         setBeds(fetchedBeds);
 
-        const fetchedKho = [{
-          kho_id: khoRes.data.data.kho_id,
-          ten_san_pham: khoRes.data.data.ten_san_pham,
-          don_vi_tinh: khoRes.data.data.don_vi_tinh || 'Không có đơn vị tính',
-        }];
+        const fetchedKho = Array.isArray(khoRes.data.data)
+          ? khoRes.data.data.map((item: any) => ({
+              kho_id: item.kho_id,
+              ten_san_pham: item.ten_san_pham,
+              don_vi_tinh: item.don_vi_tinh || 'Không có đơn vị tính',
+            }))
+          : [];
         console.log('Fetched kho:', fetchedKho);
         setKhoList(fetchedKho);
 
@@ -1322,21 +1323,34 @@ const KhamLamSan: React.FC = () => {
   };
 
   const showDonThuocModal = async (appointmentId: number) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
-      // Chuyển object thành mảng để hiển thị trong Table
-      const data = response.data.data ? [response.data.data] : [];
-      setDonThuocData(data);
-      console.log(`DonThuocModal data for appointment ${appointmentId}:`, data);
-      setIsDonThuocModalVisible(true);
-    } catch (error: any) {
-      console.error('Error fetching don thuoc:', error);
-      message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc. Vui lòng thử lại.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    // Lấy danh sách thuốc đã kê
+    const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
+    // Xử lý dữ liệu: nếu data không phải là mảng, chuyển thành mảng
+    const data = response.data.data
+      ? Array.isArray(response.data.data)
+        ? response.data.data
+        : [response.data.data] // Chuyển đối tượng thành mảng nếu không phải mảng
+      : [];
+    setDonThuocData(data);
+    console.log(`DonThuocModal data for appointment ${appointmentId}:`, data);
+
+    // Lấy tổng tiền từ API chi-phi-ngoai-tru
+    const costResponse = await axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`);
+    const totalCostValue = costResponse.data.data?.total_cost || 0; // Truy cập đúng total_cost trong data
+    setTotalCost(totalCostValue);
+    console.log(`Total cost for appointment ${appointmentId}:`, totalCostValue);
+
+    setIsDonThuocModalVisible(true);
+  } catch (error: any) {
+    console.error('Error fetching don thuoc or total cost:', error);
+    message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
+    setTotalCost(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCancel = () => {
     setIsModalVisible(false);
@@ -1493,83 +1507,80 @@ const KhamLamSan: React.FC = () => {
       title: 'Hành động',
       key: 'action',
       width: 350,
-      render: (_: any, record: Appointment) => {
-        console.log(`Render Action for Appointment ${record.id}: hasPrescription = ${record.hasPrescription}, loai_dieu_tri = ${record.loai_dieu_tri}`);
-        return (
-          <Space>
-            {record.status === 0 && record.bac_si_id === null && (
+      render: (_: any, record: Appointment) => (
+        <Space>
+          {record.status === 0 && record.bac_si_id === null && (
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              size="middle"
+              onClick={() => handleNhanLich(record.id)}
+            >
+              Nhận lịch
+            </Button>
+          )}
+          {record.status === 1 && record.bac_si_id === bacSiId && (
+            <>
               <Button
-                type="primary"
-                icon={<CheckCircleOutlined />}
+                type="default"
+                icon={<FileTextOutlined />}
                 size="middle"
-                onClick={() => handleNhanLich(record.id)}
+                onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
               >
-                Nhận lịch
+                Kết luận
               </Button>
-            )}
-            {record.status === 1 && record.bac_si_id === bacSiId && (
-              <>
+              {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
                 <Button
                   type="default"
-                  icon={<FileTextOutlined />}
+                  icon={<SolutionOutlined />}
                   size="middle"
-                  onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
+                  onClick={() => showPhanLoaiModal(record.id)}
                 >
-                  Kết luận
+                  Phân loại
                 </Button>
-                {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
-                  <Button
-                    type="default"
-                    icon={<SolutionOutlined />}
-                    size="middle"
-                    onClick={() => showPhanLoaiModal(record.id)}
-                  >
-                    Phân loại
-                  </Button>
-                )}
-                {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
-                  <Button
-                    type="default"
-                    icon={<MedicineBoxOutlined />}
-                    size="middle"
-                    onClick={() => showXepGiuongModal(record.id)}
-                  >
-                    Xếp giường
-                  </Button>
-                )}
-                {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
-                  <Button
-                    type="default"
-                    icon={<PlusCircleOutlined />}
-                    size="middle"
-                    onClick={() => showChiDinhThuocModal(record.id)}
-                  >
-                    Kê đơn thuốc
-                  </Button>
-                )}
-                {record.hasPrescription && record.loai_dieu_tri === 'ngoai_tru' && (
-                  <Button
-                    type="default"
-                    icon={<FileSearchOutlined />}
-                    size="middle"
-                    onClick={() => showDonThuocModal(record.id)}
-                  >
-                    Xem các thuốc đã kê + giá tiền
-                  </Button>
-                )}
-              </>
-            )}
-            <Button
-              type="default"
-              icon={<SwapOutlined />}
-              size="middle"
-              onClick={() => showChuyenKhoaModal(record.id)}
-            >
-              Chuyển khoa
-            </Button>
-          </Space>
-        );
-      },
+              )}
+              {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
+                <Button
+                  type="default"
+                  icon={<MedicineBoxOutlined />}
+                  size="middle"
+                  onClick={() => showXepGiuongModal(record.id)}
+                >
+                  Xếp giường
+                </Button>
+              )}
+              {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
+                <Button
+                  type="default"
+                  icon={<PlusCircleOutlined />}
+                  size="middle"
+                  onClick={() => showChiDinhThuocModal(record.id)}
+                >
+                  Kê đơn thuốc
+                </Button>
+              )}
+              {record.hasPrescription && record.loai_dieu_tri === 'ngoai_tru' && (
+                <Button
+                  type="default"
+                  icon={<FileSearchOutlined />}
+                  size="middle"
+                  onClick={() => showDonThuocModal(record.id)}
+                >
+                  Xem các thuốc đã kê + giá tiền
+                </Button>
+              )}
+            </>
+          )}
+          <Button
+            type="default"
+            icon={<SwapOutlined />}
+            size="middle"
+            onClick={() => showChuyenKhoaModal(record.id)}
+          >
+            Chuyển khoa
+          </Button>
+        </Space>
+      ),
     },
   ];
 
@@ -1582,7 +1593,10 @@ const KhamLamSan: React.FC = () => {
         </Space>
       }
       open={isDonThuocModalVisible}
-      onCancel={() => setIsDonThuocModalVisible(false)}
+      onCancel={() => {
+        setIsDonThuocModalVisible(false);
+        setTotalCost(null);
+      }}
       footer={null}
       width={800}
     >
@@ -1590,21 +1604,34 @@ const KhamLamSan: React.FC = () => {
         {donThuocData.length === 0 ? (
           <Empty description="Không có đơn thuốc nào" />
         ) : (
-          <Table
-            columns={[
-              { title: 'Tên thuốc', dataIndex: 'ten_thuoc', key: 'ten_thuoc' },
-              { title: 'Đơn vị', dataIndex: 'don_vi', key: 'don_vi' },
-              { title: 'Số lượng', dataIndex: 'so_luong', key: 'so_luong' },
-              { title: 'Liều lượng', dataIndex: 'lieu_luong', key: 'lieu_luong' },
-              { title: 'Tần suất', dataIndex: 'tan_suat', key: 'tan_suat' },
-              { title: 'Tổng tiền', dataIndex: 'thanh_tien', key: 'thanh_tien', render: (text) => `${text} VNĐ` },
-              { title: 'Ngày chỉ định', dataIndex: 'ngay_chi_dinh', key: 'ngay_chi_dinh' },
-              { title: 'Người chỉ định', dataIndex: 'nguoi_chi_dinh', key: 'nguoi_chi_dinh' },
-            ]}
-            dataSource={donThuocData}
-            rowKey="id"
-            pagination={false}
-          />
+          <>
+            <Table
+              columns={[
+                { title: 'Tên thuốc', dataIndex: 'ten_thuoc', key: 'ten_thuoc' },
+                { title: 'Đơn vị', dataIndex: 'don_vi', key: 'don_vi' },
+                { title: 'Số lượng', dataIndex: 'so_luong', key: 'so_luong' },
+                { title: 'Liều lượng', dataIndex: 'lieu_luong', key: 'lieu_luong' },
+                { title: 'Tần suất', dataIndex: 'tan_suat', key: 'tan_suat' },
+                { title: 'Ngày chỉ định', dataIndex: 'ngay_chi_dinh', key: 'ngay_chi_dinh' },
+                { title: 'Người chỉ định', dataIndex: 'nguoi_chi_dinh', key: 'nguoi_chi_dinh' },
+              ]}
+              dataSource={donThuocData}
+              rowKey="id"
+              pagination={false}
+            />
+            <div style={{ marginTop: 16, textAlign: 'right' }}>
+              {totalCost !== null ? (
+                <Statistic
+                  title="Tổng tiền phải trả"
+                  value={totalCost}
+                  suffix="VNĐ"
+                  valueStyle={{ color: '#1890ff', fontSize: '24px' }}
+                />
+              ) : (
+                <Text type="danger">Không thể tải tổng tiền. Vui lòng thử lại.</Text>
+              )}
+            </div>
+          </>
         )}
       </Spin>
     </Modal>
