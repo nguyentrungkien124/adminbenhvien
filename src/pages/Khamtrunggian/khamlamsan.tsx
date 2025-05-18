@@ -892,6 +892,7 @@ const KhamLamSan: React.FC = () => {
   const [chiDinhThuocForm] = Form.useForm();
   const [donThuocData, setDonThuocData] = useState<ChiDinhThuoc[]>([]);
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [phiKham, setPhiKham] = useState<number | null>(null); // New state for phi_kham
 
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
@@ -1323,34 +1324,46 @@ const KhamLamSan: React.FC = () => {
   };
 
   const showDonThuocModal = async (appointmentId: number) => {
-  try {
-    setLoading(true);
-    // Lấy danh sách thuốc đã kê
-    const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
-    // Xử lý dữ liệu: nếu data không phải là mảng, chuyển thành mảng
-    const data = response.data.data
-      ? Array.isArray(response.data.data)
-        ? response.data.data
-        : [response.data.data] // Chuyển đối tượng thành mảng nếu không phải mảng
-      : [];
-    setDonThuocData(data);
-    console.log(`DonThuocModal data for appointment ${appointmentId}:`, data);
+    try {
+      setLoading(true);
 
-    // Lấy tổng tiền từ API chi-phi-ngoai-tru
-    const costResponse = await axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`);
-    const totalCostValue = costResponse.data.data?.total_cost || 0; // Truy cập đúng total_cost trong data
-    setTotalCost(totalCostValue);
-    console.log(`Total cost for appointment ${appointmentId}:`, totalCostValue);
+      // Lấy danh sách thuốc đã kê
+      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
+      const data = response.data.data
+        ? Array.isArray(response.data.data)
+          ? response.data.data
+          : [response.data.data]
+        : [];
+      setDonThuocData(data);
+      console.log(`DonThuocModal data for appointment ${appointmentId}:`, data);
 
-    setIsDonThuocModalVisible(true);
-  } catch (error: any) {
-    console.error('Error fetching don thuoc or total cost:', error);
-    message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
-    setTotalCost(null);
-  } finally {
-    setLoading(false);
-  }
-};
+      // Lấy thông tin chi phí từ API chi-phi-ngoai-tru
+      const costResponse = await axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`);
+      const { total_cost: totalCostValue, da_thanh_toan: isPaid, phi_kham: phiKhamValue } = costResponse.data.data || {};
+      setTotalCost(totalCostValue || 0);
+      setPhiKham(phiKhamValue || 0);
+      console.log(`Total cost for appointment ${appointmentId}: ${totalCostValue}, Paid: ${isPaid}, Phi kham: ${phiKhamValue}`);
+
+      // Lấy thông tin từ dat_lich dựa trên source
+      let paidAmount = 0;
+      if (selectedAppointment?.source) {
+        const datLichResponse = await axios.get(`http://localhost:9999/api/noitru/datlich/${selectedAppointment.source}`);
+        paidAmount = datLichResponse.data.data?.gia || 0;
+        console.log(`Paid amount from dat_lich: ${paidAmount}`);
+      } else {
+        console.warn('Source không tồn tại trong selectedAppointment');
+      }
+
+      setIsDonThuocModalVisible(true);
+    } catch (error: any) {
+      console.error('Error fetching don thuoc or total cost:', error);
+      message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
+      setTotalCost(null);
+      setPhiKham(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCancel = () => {
     setIsModalVisible(false);
@@ -1596,6 +1609,7 @@ const KhamLamSan: React.FC = () => {
       onCancel={() => {
         setIsDonThuocModalVisible(false);
         setTotalCost(null);
+        setPhiKham(null);
       }}
       footer={null}
       width={800}
@@ -1620,16 +1634,32 @@ const KhamLamSan: React.FC = () => {
               pagination={false}
             />
             <div style={{ marginTop: 16, textAlign: 'right' }}>
-              {totalCost !== null ? (
-                <Statistic
-                  title="Tổng tiền phải trả"
-                  value={totalCost}
-                  suffix="VNĐ"
-                  valueStyle={{ color: '#1890ff', fontSize: '24px' }}
-                />
-              ) : (
-                <Text type="danger">Không thể tải tổng tiền. Vui lòng thử lại.</Text>
-              )}
+              <Row gutter={16} justify="end">
+                <Col>
+                  {phiKham !== null ? (
+                    <Statistic
+                      title="Phí khám"
+                      value={phiKham}
+                      suffix="VNĐ"
+                      valueStyle={{ color: '#fa8c16', fontSize: '20px' }}
+                    />
+                  ) : (
+                    <Text type="danger">Không thể tải phí khám. Vui lòng thử lại.</Text>
+                  )}
+                </Col>
+                <Col>
+                  {totalCost !== null ? (
+                    <Statistic
+                      title="Tổng tiền phải trả"
+                      value={totalCost}
+                      suffix="VNĐ"
+                      valueStyle={{ color: '#1890ff', fontSize: '24px' }}
+                    />
+                  ) : (
+                    <Text type="danger">Không thể tải tổng tiền. Vui lòng thử lại.</Text>
+                  )}
+                </Col>
+              </Row>
             </div>
           </>
         )}
