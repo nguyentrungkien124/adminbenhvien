@@ -299,7 +299,8 @@ const IndexNoitru: React.FC = () => {
       setLoading(true);
       const [dienBienResponse, chiDinhThuocResponse, chiPhiResponse, tongChiPhiResponse] = await Promise.all([
         axios.get(`http://localhost:9999/api/noitru/dien-bien/${inpatient.admission_id}`),
-        axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}`),
+        // axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}`),
+        axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}?null`),
         axios.get(`http://localhost:9999/api/noitru/chi-phi/${inpatient.admission_id}`),
         axios.get(`http://localhost:9999/api/noitru/tong-chi-phi/${inpatient.admission_id}`),
       ]);

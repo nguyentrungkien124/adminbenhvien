@@ -46,6 +46,7 @@ import QuanLyPhongBenh from './pages/noitru/phongbenh';
 import Letan from './pages/Letan/letan';
 import IndexGiuong from './pages/giuong/indexgiuong';
 import KhamLamsan from './pages/Khamtrunggian/khamlamsan';
+import Lichlamviec from './pages/lichlamviec/lichlamviec';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -118,6 +119,7 @@ function App() {
                         <Route path='/QuanLyPhongBenh' element={<QuanLyPhongBenh />} />
                         <Route path="/letan" element={<Letan />} />
                         <Route path="/Khamlamsan" element={<KhamLamsan />} />
+                        <Route path="/Lichlamviecbybs" element={<Lichlamviec />} />
                     </Routes>
                 </Admin>
             )}
