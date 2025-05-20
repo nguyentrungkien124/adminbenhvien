@@ -816,6 +816,7 @@ interface Appointment {
   loai_dieu_tri: 'noi_tru' | 'ngoai_tru' | 'chua_quyet_dinh' | null;
   is_admitted: boolean;
   hasPrescription?: boolean;
+  so_thu_tu?: string; // Thêm trường so_thu_tu
 }
 
 interface Department {
@@ -900,106 +901,116 @@ const KhamLamSan: React.FC = () => {
   const khoaName = user.khoa_name || 'Tim mạch';
 
   const checkHasPrescription = async (appointmentId: number): Promise<boolean> => {
+  try {
+    const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
+    const data = response.data.data;
+    const hasPrescription = Array.isArray(data) ? data.length > 0 : !!data; // Kiểm tra độ dài mảng
+    console.log(`checkHasPrescription for appointment ${appointmentId}: ${hasPrescription}, data:`, data);
+    return hasPrescription;
+  } catch (error) {
+    console.error(`Error checking prescription for appointment ${appointmentId}:`, error);
+    return false;
+  }
+};
+
+useEffect(() => {
+  const fetchData = async () => {
     try {
-      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
-      const hasPrescription = !!response.data.data;
-      console.log(`checkHasPrescription for appointment ${appointmentId}: ${hasPrescription}, data:`, response.data.data);
-      return hasPrescription;
+      setLoading(true);
+      const [appointmentsRes, departmentsRes, roomsRes, bedsRes, khoRes] = await Promise.all([
+        axios.get(`http://localhost:9999/api/letan/appointments?khoa_id=${khoaId}`),
+        axios.get('http://localhost:9999/api/khoa/getall'),
+        axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
+        axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`),
+        axios.get(`http://localhost:9999/api/noitru/kho`),
+      ]);
+      console.log('API /api/noitru/kho response:', khoRes.data);
+
+      const appointmentsData = appointmentsRes.data.data;
+      const prescriptionChecks = await Promise.all(
+        appointmentsData.map((appt: any) => checkHasPrescription(appt.id).catch(() => false))
+      );
+
+      const data = appointmentsData.map((appt: any, index: number) => ({
+        ...appt,
+        bac_si_id: appt.bac_si_id === null ? null : appt.bac_si_id,
+        status: Number(appt.status),
+        ket_qua_kham: appt.ket_qua_kham || null,
+        chuyen_khoa_ghi_chu: appt.chuyen_khoa_ghi_chu || null,
+        loai_dieu_tri: appt.loai_dieu_tri || 'chua_quyet_dinh',
+        is_admitted: !!appt.is_admitted,
+        hasPrescription: prescriptionChecks[index] ?? false,
+        so_thu_tu: appt.so_thu_tu || null, // Lấy so_thu_tu từ API
+      }));
+
+      data.forEach((appt: Appointment) => console.log(`Initial Appointment ${appt.id}: hasPrescription = ${appt.hasPrescription}, loai_dieu_tri = ${appt.loai_dieu_tri}, so_thu_tu = ${appt.so_thu_tu}`));
+      setAppointments(data);
+      setFilteredAppointments(data);
+      console.log('Fetched appointments with prescription status:', data);
+
+      const total = data.length;
+      const pending = data.filter((app: Appointment) => app.status === 0).length;
+      const received = data.filter((app: Appointment) => app.status === 1).length;
+      setStats({ total, pending, received });
+
+      setDepartments(
+        departmentsRes.data
+          .filter((d: any) => d.id !== khoaId)
+          .map((d: any) => ({
+            id: d.id.toString(),
+            name: d.ten,
+          }))
+      );
+
+      const fetchedRooms = roomsRes.data.map((room: any) => ({
+        id: room.id,
+        ten_phong: room.ten_phong,
+      }));
+      console.log('Fetched rooms:', fetchedRooms);
+      setRooms(fetchedRooms);
+
+      const fetchedBeds = bedsRes.data.map((bed: any) => ({
+        id: bed.id,
+        room_id: bed.room_id,
+        ma_giuong: bed.ma_giuong,
+      }));
+      console.log('Fetched beds:', fetchedBeds);
+      setBeds(fetchedBeds);
+
+      const khoData = khoRes.data.data || khoRes.data;
+      const fetchedKho = Array.isArray(khoData)
+        ? khoData.map((item: any) => ({
+            kho_id: item.kho_id,
+            ten_san_pham: item.ten_san_pham,
+            don_vi_tinh: item.don_vi_tinh || 'Không có đơn vị tính',
+          }))
+        : khoData
+        ? [{
+            kho_id: khoData.kho_id,
+            ten_san_pham: khoData.ten_san_pham,
+            don_vi_tinh: khoData.don_vi_tinh || 'Không có đơn vị tính',
+          }]
+        : [];
+      console.log('Fetched kho:', fetchedKho);
+      setKhoList(fetchedKho);
+
+      if (data.length === 0) {
+        message.info('Không có lịch hẹn nào trong khoa');
+      }
     } catch (error) {
-      console.error(`Error checking prescription for appointment ${appointmentId}:`, error);
-      return false;
+      console.error('Error fetching data:', error);
+      message.error('Không thể tải dữ liệu. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [appointmentsRes, departmentsRes, roomsRes, bedsRes, khoRes] = await Promise.all([
-          axios.get(`http://localhost:9999/api/letan/appointments?khoa_id=${khoaId}`),
-          axios.get('http://localhost:9999/api/khoa/getall'),
-          axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
-          axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`),
-          axios.get(`http://localhost:9999/api/noitru/kho`),
-        ]);
-
-        const appointmentsData = appointmentsRes.data.data;
-        const prescriptionChecks = await Promise.all(
-          appointmentsData.map((appt: any) => checkHasPrescription(appt.id).catch(() => false))
-        );
-
-        const data = appointmentsData.map((appt: any, index: number) => ({
-          ...appt,
-          bac_si_id: appt.bac_si_id === null ? null : appt.bac_si_id,
-          status: Number(appt.status),
-          ket_qua_kham: appt.ket_qua_kham || null,
-          chuyen_khoa_ghi_chu: appt.chuyen_khoa_ghi_chu || null,
-          loai_dieu_tri: appt.loai_dieu_tri || 'chua_quyet_dinh',
-          is_admitted: !!appt.is_admitted,
-          hasPrescription: prescriptionChecks[index] ?? false,
-        }));
-
-        data.forEach((appt: Appointment) => console.log(`Initial Appointment ${appt.id}: hasPrescription = ${appt.hasPrescription}, loai_dieu_tri = ${appt.loai_dieu_tri}`));
-        setAppointments(data);
-        setFilteredAppointments(data);
-        console.log('Fetched appointments with prescription status:', data);
-
-        const total = data.length;
-        const pending = data.filter((app: Appointment) => app.status === 0).length;
-        const received = data.filter((app: Appointment) => app.status === 1).length;
-        setStats({ total, pending, received });
-
-        setDepartments(
-          departmentsRes.data
-            .filter((d: any) => d.id !== khoaId)
-            .map((d: any) => ({
-              id: d.id.toString(),
-              name: d.ten,
-            }))
-        );
-
-        const fetchedRooms = roomsRes.data.map((room: any) => ({
-          id: room.id,
-          ten_phong: room.ten_phong,
-        }));
-        console.log('Fetched rooms:', fetchedRooms);
-        setRooms(fetchedRooms);
-
-        const fetchedBeds = bedsRes.data.map((bed: any) => ({
-          id: bed.id,
-          room_id: bed.room_id,
-          ma_giuong: bed.ma_giuong,
-        }));
-        console.log('Fetched beds:', fetchedBeds);
-        setBeds(fetchedBeds);
-
-        const fetchedKho = Array.isArray(khoRes.data.data)
-          ? khoRes.data.data.map((item: any) => ({
-              kho_id: item.kho_id,
-              ten_san_pham: item.ten_san_pham,
-              don_vi_tinh: item.don_vi_tinh || 'Không có đơn vị tính',
-            }))
-          : [];
-        console.log('Fetched kho:', fetchedKho);
-        setKhoList(fetchedKho);
-
-        if (data.length === 0) {
-          message.info('Không có lịch hẹn nào trong khoa');
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        message.error('Không thể tải dữ liệu. Vui lòng thử lại sau.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (khoaId) {
-      fetchData();
-    } else {
-      message.error('Không tìm thấy thông tin khoa. Vui lòng đăng nhập lại.');
-    }
-  }, [khoaId]);
+  if (khoaId) {
+    fetchData();
+  } else {
+    message.error('Không tìm thấy thông tin khoa. Vui lòng đăng nhập lại.');
+  }
+}, [khoaId]);
 
   useEffect(() => {
     let filtered = appointments;
@@ -1439,101 +1450,115 @@ const KhamLamSan: React.FC = () => {
     return <Tag color="default">Chưa quyết định</Tag>;
   };
 
-  const columns = [
-    {
-      title: 'Mã',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
-      title: 'Thông tin bệnh nhân',
-      key: 'patient',
-      width: 250,
-      render: (_: any, record: Appointment) => (
-        <Space direction="vertical" size={0}>
-          <Space>
-            <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
-            <Text strong>{record.ho_ten}</Text>
-          </Space>
-          <Space align="center">
-            <PhoneOutlined style={{ color: '#1890ff' }} />
-            <Text>{record.so_dien_thoai}</Text>
-          </Space>
-          {record.bao_hiem_y_te !== null && (
-            <div style={{ marginTop: 4 }}>
-              {getInsuranceTag(record.bao_hiem_y_te, record.so_bao_hiem_y_te)}
-            </div>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: 'Triệu chứng',
-      dataIndex: 'trieu_chung',
-      key: 'trieu_chung',
-      ellipsis: { showTitle: false },
-      render: (text: string) => (
-        <Tooltip title={text} placement="topLeft">
-          <Paragraph ellipsis={{ rows: 2 }}>{text}</Paragraph>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Ngày tạo',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 150,
-      render: (date: string) => (
+const columns = [
+  {
+    title: 'Mã',
+    dataIndex: 'id',
+    key: 'id',
+    width: 80,
+  },
+  {
+    title: 'Số thứ tự',
+    dataIndex: 'so_thu_tu',
+    key: 'so_thu_tu',
+    width: 150,
+    render: (so_thu_tu: string | null, record: Appointment) => (
+      <Text>
+        {so_thu_tu 
+          ? `${so_thu_tu.substring(0, 5)} (${so_thu_tu.substring(5)} - ${record.ho_ten})` 
+          : 'Chưa có'}
+      </Text>
+    ),
+  },
+  {
+    title: 'Thông tin bệnh nhân',
+    key: 'patient',
+    width: 250,
+    render: (_: any, record: Appointment) => (
+      <Space direction="vertical" size={0}>
         <Space>
-          <CalendarOutlined />
-          {formatDate(date)}
+          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+          <Text strong>{record.ho_ten}</Text>
         </Space>
-      ),
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      width: 120,
-      render: (status: number) => getStatusTag(status),
-    },
-    {
-      title: 'Kết luận',
-      dataIndex: 'ket_qua_kham',
-      key: 'ket_qua_kham',
-      ellipsis: { showTitle: false },
-      render: (ket_qua_kham: string | null) => (
-        <Tooltip title={ket_qua_kham} placement="topLeft">
-          <Paragraph ellipsis={{ rows: 2 }}>{ket_qua_kham || 'Chưa có'}</Paragraph>
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Loại điều trị',
-      dataIndex: 'loai_dieu_tri',
-      key: 'loai_dieu_tri',
-      width: 120,
-      render: (loai_dieu_tri: string | null) => getLoaiDieuTriTag(loai_dieu_tri),
-    },
-    {
-      title: 'Hành động',
-      key: 'action',
-      width: 350,
-      render: (_: any, record: Appointment) => (
-        <Space>
-          {record.status === 0 && record.bac_si_id === null && (
-            <Button
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              size="middle"
-              onClick={() => handleNhanLich(record.id)}
-            >
-              Nhận lịch
-            </Button>
-          )}
-          {record.status === 1 && record.bac_si_id === bacSiId && (
-            <>
+        <Space align="center">
+          <PhoneOutlined style={{ color: '#1890ff' }} />
+          <Text>{record.so_dien_thoai}</Text>
+        </Space>
+        {record.bao_hiem_y_te !== null && (
+          <div style={{ marginTop: 4 }}>
+            {getInsuranceTag(record.bao_hiem_y_te, record.so_bao_hiem_y_te)}
+          </div>
+        )}
+      </Space>
+    ),
+  },
+  {
+    title: 'Triệu chứng',
+    dataIndex: 'trieu_chung',
+    key: 'trieu_chung',
+    ellipsis: { showTitle: false },
+    render: (text: string) => (
+      <Tooltip title={text} placement="topLeft">
+        <Paragraph ellipsis={{ rows: 2 }}>{text}</Paragraph>
+      </Tooltip>
+    ),
+  },
+  {
+    title: 'Ngày tạo',
+    dataIndex: 'created_at',
+    key: 'created_at',
+    width: 150,
+    render: (date: string) => (
+      <Space>
+        <CalendarOutlined />
+        {formatDate(date)}
+      </Space>
+    ),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 120,
+    render: (status: number) => getStatusTag(status),
+  },
+  {
+    title: 'Kết luận',
+    dataIndex: 'ket_qua_kham',
+    key: 'ket_qua_kham',
+    ellipsis: { showTitle: false },
+    render: (ket_qua_kham: string | null) => (
+      <Tooltip title={ket_qua_kham} placement="topLeft">
+        <Paragraph ellipsis={{ rows: 2 }}>{ket_qua_kham || 'Chưa có'}</Paragraph>
+      </Tooltip>
+    ),
+  },
+  {
+    title: 'Loại điều trị',
+    dataIndex: 'loai_dieu_tri',
+    key: 'loai_dieu_tri',
+    width: 120,
+    render: (loai_dieu_tri: string | null) => getLoaiDieuTriTag(loai_dieu_tri),
+  },
+  {
+    title: 'Hành động',
+    key: 'action',
+    width: 350,
+    render: (_: any, record: Appointment) => (
+      <Space>
+        {record.status === 0 && record.bac_si_id === null && (
+          <Button
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            size="middle"
+            onClick={() => handleNhanLich(record.id)}
+          >
+            Nhận lịch
+          </Button>
+        )}
+        {record.status === 1 && record.bac_si_id === bacSiId && (
+          <>
+            {!record.ket_qua_kham && (
               <Button
                 type="default"
                 icon={<FileTextOutlined />}
@@ -1542,61 +1567,61 @@ const KhamLamSan: React.FC = () => {
               >
                 Kết luận
               </Button>
-              {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
-                <Button
-                  type="default"
-                  icon={<SolutionOutlined />}
-                  size="middle"
-                  onClick={() => showPhanLoaiModal(record.id)}
-                >
-                  Phân loại
-                </Button>
-              )}
-              {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
-                <Button
-                  type="default"
-                  icon={<MedicineBoxOutlined />}
-                  size="middle"
-                  onClick={() => showXepGiuongModal(record.id)}
-                >
-                  Xếp giường
-                </Button>
-              )}
-              {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
-                <Button
-                  type="default"
-                  icon={<PlusCircleOutlined />}
-                  size="middle"
-                  onClick={() => showChiDinhThuocModal(record.id)}
-                >
-                  Kê đơn thuốc
-                </Button>
-              )}
-              {record.hasPrescription && record.loai_dieu_tri === 'ngoai_tru' && (
-                <Button
-                  type="default"
-                  icon={<FileSearchOutlined />}
-                  size="middle"
-                  onClick={() => showDonThuocModal(record.id)}
-                >
-                  Xem các thuốc đã kê + giá tiền
-                </Button>
-              )}
-            </>
-          )}
-          <Button
-            type="default"
-            icon={<SwapOutlined />}
-            size="middle"
-            onClick={() => showChuyenKhoaModal(record.id)}
-          >
-            Chuyển khoa
-          </Button>
-        </Space>
-      ),
-    },
-  ];
-
+            )}
+            {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
+              <Button
+                type="default"
+                icon={<SolutionOutlined />}
+                size="middle"
+                onClick={() => showPhanLoaiModal(record.id)}
+              >
+                Phân loại
+              </Button>
+            )}
+            {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
+              <Button
+                type="default"
+                icon={<PlusCircleOutlined />}
+                size="middle"
+                onClick={() => showChiDinhThuocModal(record.id)}
+              >
+                Kê đơn thuốc
+              </Button>
+            )}
+            {record.loai_dieu_tri === 'ngoai_tru' && record.hasPrescription && (
+              <Button
+                type="default"
+                icon={<FileSearchOutlined />}
+                size="middle"
+                onClick={() => showDonThuocModal(record.id)}
+              >
+                Xem các thuốc đã kê + giá tiền
+              </Button>
+            )}
+            {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
+              <Button
+                type="default"
+                icon={<MedicineBoxOutlined />}
+                size="middle"
+                onClick={() => showXepGiuongModal(record.id)}
+              >
+                Xếp giường
+              </Button>
+            )}
+            <Button
+              type="default"
+              icon={<SwapOutlined />}
+              size="middle"
+              onClick={() => showChuyenKhoaModal(record.id)}
+            >
+              Chuyển khoa
+            </Button>
+          </>
+        )}
+      </Space>
+    ),
+  },
+];
   const DonThuocModal = (
     <Modal
       title={
