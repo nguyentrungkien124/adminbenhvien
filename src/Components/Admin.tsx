@@ -176,6 +176,14 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/Banglichlamviecbybs">Bảng lịch làm việc</Link> },
     ]
+  },
+   {
+    key: 'sub19',
+    icon: <IdcardOutlined />,
+    label: 'Lịch hẹn khám',
+    children: [
+      { key: '1', label: <Link to="/Lichhenkham">Lịch hẹn khám</Link> },
+    ]
   }
 ];
 
@@ -202,7 +210,7 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
       if (role === 'admin') {
         return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
       } else if (role === 'bacsi') {
-        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14','sub16','sub17','sub18'].includes(item.key);
+        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14','sub16','sub17','sub18','sub19'].includes(item.key);
       } else if (role === 'letan') {
         return item.key === 'sub15';
       }
