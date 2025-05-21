@@ -1,5 +1,6 @@
+// Admin.tsx (phần liên quan)
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Breadcrumb, Button } from 'antd';
+import { Layout, Menu, Breadcrumb, Button, Badge, Popover, List, Typography } from 'antd';
 import {
   UserOutlined,
   ProfileOutlined,
@@ -19,8 +20,10 @@ import {
   ReadOutlined,
   IdcardOutlined
 } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
 
+// Định nghĩa theme
 const theme = {
   useToken: () => ({
     token: {
@@ -31,7 +34,61 @@ const theme = {
 };
 
 const { Header, Content, Footer, Sider } = Layout;
+const { Text } = Typography;
 
+// Interfaces
+interface Notification {
+  message: string;
+  time: number;
+  seen: boolean;
+}
+
+interface SocketNotificationData {
+  message: string;
+}
+
+interface AppointmentCountData {
+  count: number;
+}
+
+// Singleton Socket Management
+let socketInstance: Socket | null = null;
+
+const connectSocket = (): Socket => {
+  if (!socketInstance) {
+    socketInstance = io('http://localhost:9999', {
+      reconnectionAttempts: 5,
+      reconnectionDelay: 5000,
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('Socket connected:', socketInstance?.id, 'at', new Date().toISOString());
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message, 'at', new Date().toISOString());
+    });
+
+    socketInstance.on('reconnect_failed', () => {
+      console.error('Socket reconnection failed after maximum attempts.', 'at', new Date().toISOString());
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason, 'at', new Date().toISOString());
+    });
+  }
+  return socketInstance;
+};
+
+const disconnectSocket = () => {
+  if (socketInstance) {
+    socketInstance.disconnect();
+    socketInstance = null;
+    console.log('Socket instance disconnected and cleared at', new Date().toISOString());
+  }
+};
+
+// Menu items (giảm bớt để tập trung vào vấn đề)
 const items2 = [
   {
     key: 'sub4',
@@ -137,14 +194,6 @@ const items2 = [
       { key: '1', label: <Link to="/Giuongbenh">Giường bệnh</Link> },
     ]
   },
-  // {
-  //   key: 'sub14',
-  //   icon: <IdcardOutlined />,
-  //   label: 'Phòng bệnh',
-  //   children: [
-  //     { key: '1', label: <Link to="/PhongBenh">Phòng bệnh</Link> },
-  //   ]
-  // },
   {
     key: 'sub15',
     icon: <IdcardOutlined />,
@@ -153,15 +202,15 @@ const items2 = [
       { key: '1', label: <Link to="/Letan">Lễ tân</Link> },
     ]
   },
-    {
+  {
     key: 'sub16',
     icon: <IdcardOutlined />,
-    label: 'Kham lâm sàng',
+    label: 'Khám lâm sàng',
     children: [
       { key: '1', label: <Link to="/Khamlamsan">Khám lâm sàn</Link> },
     ]
   },
-    {
+  {
     key: 'sub17',
     icon: <IdcardOutlined />,
     label: 'Lịch làm việc',
@@ -169,15 +218,15 @@ const items2 = [
       { key: '1', label: <Link to="/Lichlamviecbybs">Lịch làm việc</Link> },
     ]
   },
-    {
+  {
     key: 'sub18',
     icon: <IdcardOutlined />,
-    label: 'Bảng lịch làm việc ',
+    label: 'Bảng lịch làm việc',
     children: [
       { key: '1', label: <Link to="/Banglichlamviecbybs">Bảng lịch làm việc</Link> },
     ]
   },
-   {
+  {
     key: 'sub19',
     icon: <IdcardOutlined />,
     label: 'Lịch hẹn khám',
@@ -193,39 +242,223 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
   } = theme.useToken();
 
   const [role, setRole] = useState<string | null>(null);
+  const [notificationCount, setNotificationCount] = useState(0); // Số thông báo từ notifications
+  const [appointmentCount, setAppointmentCount] = useState(0); // Số lịch hẹn từ server
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [socketError, setSocketError] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<{ ho_ten: string; ten_khoa: string } | null>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const navigate = useNavigate();
 
+  console.log('Admin component re-rendered at', new Date().toISOString());
+  console.log('Notifications:', notifications); // Debug notifications
+  console.log('Notification Count:', notificationCount); // Debug notificationCount
+
+  // Initialize user data
   useEffect(() => {
-    const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
-    setRole(userData.role);
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserData(parsedUser);
+        setRole(parsedUser.role);
+      } catch (error) {
+        console.error('Error parsing user from sessionStorage:', error);
+        sessionStorage.removeItem('user');
+      }
+    }
   }, []);
+
+  // Fetch user info and setup socket
+  useEffect(() => {
+    if (!userData) return;
+
+    const fetchUserInfo = async () => {
+      try {
+        const bac_si_id = userData.bac_si_id;
+        const khoa_id = userData.khoa_id;
+
+        if (!bac_si_id || !khoa_id) {
+          throw new Error('Không tìm thấy bac_si_id hoặc khoa_id');
+        }
+
+        const [bacsiResponse, khoaResponse] = await Promise.all([
+          fetch(`http://localhost:9999/api/bacsi/getbacsibyID/${bac_si_id}`),
+          fetch(`http://localhost:9999/api/khoa/getkhoabyid/${khoa_id}`),
+        ]);
+
+        if (!bacsiResponse.ok || !khoaResponse.ok) {
+          throw new Error('Không thể lấy dữ liệu từ API');
+        }
+
+        const bacsiData = await bacsiResponse.json();
+        const khoaData = await khoaResponse.json();
+
+        setUserInfo({
+          ho_ten: bacsiData.ho_ten || 'Không có tên',
+          ten_khoa: khoaData[0]?.ten || 'Không có khoa',
+        });
+      } catch (error) {
+        console.error('Lỗi khi lấy thông tin:', error);
+        setUserInfo({
+          ho_ten: 'Không thể lấy tên',
+          ten_khoa: 'Không thể lấy khoa',
+        });
+      }
+    };
+
+    fetchUserInfo();
+
+    const storedNotifications = localStorage.getItem('notifications');
+    if (storedNotifications) {
+      const parsedNotifications: Notification[] = JSON.parse(storedNotifications);
+      setNotifications(parsedNotifications);
+      setNotificationCount(parsedNotifications.filter(noti => !noti.seen).length);
+    }
+
+    const socket = connectSocket();
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id, 'at', new Date().toISOString());
+      setSocketError(null);
+      if (userData.bac_si_id) {
+        console.log('Joining room for bac_si_id:', userData.bac_si_id);
+        socket.emit('join_room', { bac_si_id: userData.bac_si_id });
+      }
+    });
+
+    socket.on('newNotification', (data: SocketNotificationData) => {
+      console.log('New notification received:', data, 'at', new Date().toISOString());
+      const newNotification: Notification = {
+        message: data.message,
+        time: Date.now(),
+        seen: false,
+      };
+      setNotifications((prev) => {
+        const updatedNotifications = [...prev, newNotification];
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+        return updatedNotifications;
+      });
+      setNotificationCount((prev) => prev + 1); // Tăng dựa trên notifications
+    });
+
+    socket.on('appointmentCount', (data: AppointmentCountData) => {
+      console.log('Received appointment count:', data.count, 'at', new Date().toISOString());
+      setAppointmentCount(data.count); // Chỉ cập nhật appointmentCount
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message, 'at', new Date().toISOString());
+      setSocketError('Không thể kết nối đến server thông báo.');
+    });
+
+    socket.on('reconnect_failed', () => {
+      console.error('Socket reconnection failed.', 'at', new Date().toISOString());
+      setSocketError('Không thể kết nối lại server thông báo.');
+    });
+
+    return () => {
+      socket.off('newNotification');
+      socket.off('appointmentCount');
+      socket.off('connect_error');
+      socket.off('reconnect_failed');
+    };
+  }, [userData]);
+
+  const getTimeAgo = (timestamp: number) => {
+    const now = Date.now();
+    const seconds = Math.floor((now - timestamp) / 1000);
+    if (seconds < 60) return `${seconds} giây trước`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút trước`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.floor(hours / 24);
+    return `${days} ngày trước`;
+  };
+
+  const handleNotificationClick = (index: number) => {
+    setNotifications((prev) => {
+      const updatedNotifications = [...prev];
+      updatedNotifications[index].seen = true;
+      localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      return updatedNotifications;
+    });
+    setNotificationCount((prev) => Math.max(prev - 1, 0));
+    navigate('/Lichhenkham');
+  };
 
   const handleLogout = () => {
     onLogout();
     sessionStorage.removeItem('user');
+    disconnectSocket();
   };
 
-  // Lọc menu theo vai trò
   const filteredMenuItems = items2
     .filter(item => {
       if (role === 'admin') {
         return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
       } else if (role === 'bacsi') {
-        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14','sub16','sub17','sub18','sub19'].includes(item.key);
+        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19'].includes(item.key);
       } else if (role === 'letan') {
         return item.key === 'sub15';
       }
       return false;
     })
     .map(item => {
-      if (role === 'bacsi' && item.key === 'sub2') {
-        // Chỉ giữ mục con có key: '1' trong sub2 cho vai trò bacsi
-        return {
-          ...item,
-          children: item.children.filter(child => child.key === '1')
-        };
+      if (role === 'bacsi') {
+        if (item.key === 'sub2') {
+          return {
+            ...item,
+            children: item.children.filter(child => child.key === '1')
+          };
+        } else if (item.key === 'sub8') {
+          return {
+            ...item,
+            children: item.children.filter(child => child.key === '2')
+          };
+        }
       }
       return item;
     });
+
+  const notificationContent = (
+    <div>
+      {socketError && (
+        <div style={{ color: 'red', padding: '8px', textAlign: 'center' }}>
+          {socketError}
+        </div>
+      )}
+      <List
+        dataSource={notifications}
+        renderItem={(item, index) => (
+          <List.Item
+            onClick={() => handleNotificationClick(index)}
+            style={{
+              cursor: 'pointer',
+              backgroundColor: item.seen ? '#f5f5f5' : '#e6f7ff',
+              padding: '8px',
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
+            <List.Item.Meta
+              title={<Text strong={!item.seen}>{item.message}</Text>}
+              description={getTimeAgo(item.time)}
+            />
+          </List.Item>
+        )}
+        locale={{ emptyText: 'Không có thông báo' }}
+        style={{ maxHeight: '300px', overflowY: 'auto', width: '300px' }}
+      />
+    </div>
+  );
+
+  const userInfoContent = (
+    <div style={{ padding: '8px', width: '200px' }}>
+      <p><strong>Tên:</strong> {userInfo?.ho_ten || 'Không có tên'}</p>
+      <p><strong>Khoa:</strong> {userInfo?.ten_khoa || 'Không có khoa'}</p>
+    </div>
+  );
 
   return (
     <Layout>
@@ -240,8 +473,30 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
         </div>
         <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['2']} style={{ flex: 1, backgroundColor: '#4a90e2' }} />
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <BellOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px' }} />
+          <Popover
+            content={notificationContent}
+            title="Thông báo"
+            trigger="click"
+            placement="bottomRight"
+          >
+            <Badge
+              count={notificationCount} // Sử dụng notificationCount thay vì appointmentCount
+              offset={[10, 0]}
+              showZero={true}
+              style={{ backgroundColor: '#ff4d4f', right: 20 }}
+            >
+              <BellOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }} />
+            </Badge>
+          </Popover>
           <MailOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px' }} />
+          <Popover
+            content={userInfoContent}
+            title="Thông tin người dùng"
+            trigger="click"
+            placement="bottomRight"
+          >
+            <UserOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }} />
+          </Popover>
           <Button
             type="primary"
             onClick={handleLogout}

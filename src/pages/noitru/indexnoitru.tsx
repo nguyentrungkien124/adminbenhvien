@@ -120,6 +120,8 @@ interface ChiPhi {
 interface TongChiPhi {
   tong_tien: number;
   co_bao_hiem: boolean;
+  gia_kham: number;
+  trang_thai_thanh_toan: string;
 }
 const IndexNoitru: React.FC = () => {
   const [inpatients, setInpatients] = useState<Inpatient[]>([]);
@@ -920,52 +922,67 @@ const columns = [
                 />
               )}
             </TabPane>
-            <TabPane tab="Chi phí" key="chiPhi">
-              <>
-                <Divider>Chi phí điều trị</Divider>
-                <Row gutter={16} style={{ marginBottom: 16 }}>
-                  <Col span={12} style={{ zIndex: 1 }}>
-                    <Statistic
-                      title="Tổng chi phí"
-                      value={tongChiPhi?.tong_tien || 0}
-                      formatter={(value) => formatCurrency(value as number)}
-                      valueStyle={{ color: '#1890ff' }}
-                    />
-                  </Col>
-                  <Col span={12} style={{ zIndex: 1 }}>
-                    <Statistic
-                      title="Bảo hiểm"
-                      value={tongChiPhi?.co_bao_hiem ? 'Có (Giảm 30%)' : 'Không'}
-                      valueStyle={{ color: tongChiPhi?.co_bao_hiem ? '#52c41a' : '#fa8c16' }}
-                    />
-                  </Col>
-                </Row>
-                <Button
-                  type="primary"
-                  icon={<DollarOutlined />}
-                  onClick={() => showAddChiPhiModal(selectedInpatient.admission_id)}
-                  style={{ marginBottom: 16 }}
-                >
-                  Thêm chi phí
-                </Button>
-                {chiPhiList.length > 0 ? (
-                  <Table
-                    columns={chiPhiColumns}
-                    dataSource={chiPhiList}
-                    rowKey="id"
-                    pagination={false}
-                    bordered
-                    size="small"
-                  />
-                ) : (
-                  <Empty
-                    description="Chưa có chi phí nào được ghi nhận"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ margin: '20px 0' }}
-                  />
-                )}
-              </>
-            </TabPane>
+          <TabPane tab="Chi phí" key="chiPhi">
+          <>
+            <Divider>Chi phí điều trị</Divider>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={12} style={{ zIndex: 1 }}>
+                <Statistic
+                  title="Tổng chi phí"
+                  value={tongChiPhi?.tong_tien || 0}
+                  formatter={(value) => formatCurrency(value as number)}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Col>
+              <Col span={12} style={{ zIndex: 1 }}>
+                <Statistic
+                  title="Giá khám"
+                  value={tongChiPhi?.gia_kham || 0}
+                  formatter={(value) => formatCurrency(value as number)}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Col>
+              <Col span={12} style={{ zIndex: 1 }}>
+                <Statistic
+                  title="Bảo hiểm"
+                  value={tongChiPhi?.co_bao_hiem ? 'Có (Giảm 30%)' : 'Không'}
+                  valueStyle={{ color: tongChiPhi?.co_bao_hiem ? '#52c41a' : '#fa8c16' }}
+                />
+              </Col>
+              <Col span={12} style={{ zIndex: 1 }}>
+                <Statistic
+                  title="Trạng thái thanh toán"
+                  value={tongChiPhi?.trang_thai_thanh_toan || 'Chưa thanh toán'}
+                  valueStyle={{ color: tongChiPhi?.trang_thai_thanh_toan === 'Đã thanh toán' ? '#52c41a' : '#fa8c16' }}
+                />
+              </Col>
+            </Row>
+            <Button
+              type="primary"
+              icon={<DollarOutlined />}
+              onClick={() => showAddChiPhiModal(selectedInpatient.admission_id)}
+              style={{ marginBottom: 16 }}
+            >
+              Thêm chi phí
+            </Button>
+            {chiPhiList.length > 0 ? (
+              <Table
+                columns={chiPhiColumns}
+                dataSource={chiPhiList}
+                rowKey="id"
+                pagination={false}
+                bordered
+                size="small"
+              />
+            ) : (
+              <Empty
+                description="Chưa có chi phí nào được ghi nhận"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                style={{ margin: '20px 0' }}
+              />
+            )}
+          </>
+        </TabPane>
           </Tabs>
         )}
       </Modal>
