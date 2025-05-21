@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Row,
@@ -16,45 +16,61 @@ const { Option } = Select;
 
 interface Giuong {
   id: string;
-  tenGiuong: string;
-  phong: string;
+  tenGiuong: string; // Tương ứng với bed_code
+  phong: string; // Tương ứng với room_name
   trangThai: "trong" | "da_su_dung";
+  patientName?: string; // Tên bệnh nhân, optional
+  roomId: string; // Thêm room_id để quản lý
+  bedId: string; // Thêm bed_id để quản lý
+  bedPrice: number; // Thêm giá giường
 }
 
-const dsGiuongBanDau: Giuong[] = [
-    { id: "1", tenGiuong: "G1", phong: "201A", trangThai: "trong" },
-    { id: "2", tenGiuong: "G2", phong: "201A", trangThai: "da_su_dung" },
-    { id: "3", tenGiuong: "G3", phong: "201B", trangThai: "trong" },
-    { id: "4", tenGiuong: "G4", phong: "201B", trangThai: "da_su_dung" },
-    { id: "5", tenGiuong: "G5", phong: "202A", trangThai: "trong" },
-    { id: "6", tenGiuong: "G6", phong: "202A", trangThai: "trong" },
-    { id: "7", tenGiuong: "G7", phong: "202B", trangThai: "da_su_dung" },
-    { id: "8", tenGiuong: "G8", phong: "202B", trangThai: "trong" },
-    { id: "9", tenGiuong: "G9", phong: "203A", trangThai: "trong" },
-    { id: "10", tenGiuong: "G10", phong: "203A", trangThai: "da_su_dung" },
-    { id: "11", tenGiuong: "G11", phong: "203B", trangThai: "trong" },
-    { id: "12", tenGiuong: "G12", phong: "203B", trangThai: "trong" },
-    { id: "13", tenGiuong: "G13", phong: "204A", trangThai: "da_su_dung" },
-    { id: "14", tenGiuong: "G14", phong: "204A", trangThai: "trong" },
-    { id: "15", tenGiuong: "G15", phong: "204B", trangThai: "trong" },
-    { id: "16", tenGiuong: "G16", phong: "204B", trangThai: "da_su_dung" },
-  ];
-  
-
 const IndexGiuong: React.FC = () => {
-  const [dsGiuong, setDsGiuong] = useState<Giuong[]>(dsGiuongBanDau);
+  const [dsGiuong, setDsGiuong] = useState<Giuong[]>([]);
   const [phongDangChon, setPhongDangChon] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [giuongDangChon, setGiuongDangChon] = useState<Giuong | null>(null);
   const [trangThaiMoi, setTrangThaiMoi] = useState<"trong" | "da_su_dung">();
+  const [loading, setLoading] = useState(true);
 
-  // Lấy danh sách các phòng duy nhất
+  // Lấy danh sách các phòng duy nhất từ dữ liệu
   const dsPhong = Array.from(new Set(dsGiuong.map((g) => g.phong)));
 
-  // Giường hiển thị: theo phòng đang chọn và trạng thái còn trống
-  const giuongTheoPhong = dsGiuong.filter(
-    (g) => g.phong === phongDangChon && g.trangThai === "trong"
-  );
+  // Giường hiển thị: tất cả giường theo phòng đang chọn (bao gồm cả trống và đã sử dụng)
+  const giuongTheoPhong = dsGiuong.filter((g) => g.phong === phongDangChon);
+
+  // Fetch dữ liệu từ API
+  useEffect(() => {
+    const fetchBeds = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://localhost:9999/api/phongbenh/beds-with-patients?khoa_id=15");
+        if (!response.ok) throw new Error("Failed to fetch beds");
+        const data = await response.json();
+        console.log("API response:", data);
+
+        // Chuyển đổi dữ liệu từ API sang định dạng Giuong
+        const formattedBeds: Giuong[] = data.map((item: any) => ({
+          id: item.bed_id,
+          tenGiuong: item.bed_code,
+          phong: item.room_name,
+          trangThai: item.bed_status === "trong" ? "trong" : "da_su_dung",
+          patientName: item.patient_name === "Trống" ? undefined : item.patient_name,
+          roomId: item.room_id,
+          bedId: item.bed_id,
+          bedPrice: item.bed_price,
+        }));
+        setDsGiuong(formattedBeds);
+      } catch (error) {
+        message.error("Lỗi khi tải dữ liệu giường bệnh");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBeds();
+  }, []);
 
   const moModalCapNhat = (giuong: Giuong) => {
     setGiuongDangChon(giuong);
@@ -70,13 +86,20 @@ const IndexGiuong: React.FC = () => {
     setDsGiuong(capNhat);
     setModalVisible(false);
     message.success("Cập nhật trạng thái thành công");
+    // Gửi request cập nhật lên server nếu cần (tạm thời chưa có API cập nhật)
   };
 
-  const renderTag = (trangThai: Giuong["trangThai"]) => {
-    return trangThai === "trong" ? (
-      <Tag color="green">Còn trống</Tag>
-    ) : (
-      <Tag color="red">Đã sử dụng</Tag>
+  const renderTagAndPatient = (giuong: Giuong) => {
+    return (
+      <>
+        {giuong.trangThai === "trong" ? (
+          <Tag color="green">Còn trống</Tag>
+        ) : (
+          <Tag color="red">Đã sử dụng</Tag>
+        )}
+        {giuong.patientName && <p>Tên bệnh nhân: {giuong.patientName}</p>}
+        <p>Giá: {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(giuong.bedPrice)}</p>
+      </>
     );
   };
 
@@ -93,6 +116,7 @@ const IndexGiuong: React.FC = () => {
             onChange={(val) => setPhongDangChon(val)}
             value={phongDangChon || undefined}
             allowClear
+            loading={loading}
           >
             {dsPhong.map((phong) => (
               <Option key={phong} value={phong}>
@@ -103,7 +127,9 @@ const IndexGiuong: React.FC = () => {
         </Space>
       </div>
 
-      {phongDangChon && (
+      {loading ? (
+        <p>Đang tải dữ liệu...</p>
+      ) : phongDangChon ? (
         <Row gutter={[16, 16]}>
           {giuongTheoPhong.length > 0 ? (
             giuongTheoPhong.map((giuong) => (
@@ -115,19 +141,22 @@ const IndexGiuong: React.FC = () => {
                     <Button
                       icon={<EditOutlined />}
                       onClick={() => moModalCapNhat(giuong)}
+                      disabled={giuong.trangThai === "da_su_dung"} // Chỉ cho phép cập nhật giường trống
                     >
                       Cập nhật
                     </Button>,
                   ]}
                 >
-                  {renderTag(giuong.trangThai)}
+                  {renderTagAndPatient(giuong)}
                 </Card>
               </Col>
             ))
           ) : (
-            <p>Không có giường trống trong phòng này.</p>
+            <p>Không có giường nào trong phòng này.</p>
           )}
         </Row>
+      ) : (
+        <p>Vui lòng chọn phòng để xem giường.</p>
       )}
 
       <Modal
@@ -141,6 +170,7 @@ const IndexGiuong: React.FC = () => {
           <strong>Giường:</strong> {giuongDangChon?.tenGiuong} –{" "}
           <strong>Phòng:</strong> {giuongDangChon?.phong}
         </p>
+        <p>Giá: {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(giuongDangChon?.bedPrice || 0)}</p>
         <Select
           style={{ width: "100%" }}
           value={trangThaiMoi}
