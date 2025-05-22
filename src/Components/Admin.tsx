@@ -311,9 +311,9 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
 
         const bacsiData = await bacsiResponse.json();
         const khoaData = await khoaResponse.json();
-
+        console.log('Bác sĩ data:', bacsiData);
         setUserInfo({
-          ho_ten: bacsiData.ho_ten || 'Không có tên',
+          ho_ten: bacsiData[0].ho_ten || 'Không có tên',
           ten_khoa: khoaData[0]?.ten || 'Không có khoa',
         });
       } catch (error) {
