@@ -205,9 +205,9 @@ const items2 = [
   {
     key: 'sub16',
     icon: <IdcardOutlined />,
-    label: 'Khám lâm sàng',
+    label: 'Quản lý khám bệnh',
     children: [
-      { key: '1', label: <Link to="/Khamlamsan">Khám lâm sàn</Link> },
+      { key: '1', label: <Link to="/Quanlykhambenh">Quản lý khám bệnh</Link> },
     ]
   },
   {
@@ -232,6 +232,24 @@ const items2 = [
     label: 'Lịch hẹn khám',
     children: [
       { key: '1', label: <Link to="/Lichhenkham">Lịch hẹn khám</Link> },
+    ]
+  }
+  ,
+  {
+    key: 'sub20',
+    icon: <IdcardOutlined />,
+    label: 'Quản lý khám lâm sàng',
+    children: [
+      { key: '1', label: <Link to="/Khamlamsan">Quản lý khám lâm sàng</Link> },
+    ]
+  }
+   ,
+  {
+    key: 'sub21',
+    icon: <IdcardOutlined />,
+    label: 'Thanh toán',
+    children: [
+      { key: '1', label: <Link to="/Xacnhanthanhtoanbyletan">Thanh toán</Link> },
     ]
   }
 ];
@@ -399,9 +417,10 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
       if (role === 'admin') {
         return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
       } else if (role === 'bacsi') {
-        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19'].includes(item.key);
+        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19','sub20'].includes(item.key);
       } else if (role === 'letan') {
-        return item.key === 'sub15';
+        // return item.key === 'sub15','sub21';
+       return ['sub15','sub21'].includes(item.key);
       }
       return false;
     })

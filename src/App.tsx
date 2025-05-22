@@ -45,10 +45,12 @@ import QuanLyGiuong from './pages/giuong/indexgiuong';
 import QuanLyPhongBenh from './pages/noitru/phongbenh';
 import Letan from './pages/Letan/letan';
 import IndexGiuong from './pages/giuong/indexgiuong';
-import KhamLamsan from './pages/Khamtrunggian/khamlamsan';
+import Quanlykhambenh from './pages/Khamtrunggian/Quanlykhambenh';
 import Lichlamviec from './pages/lichlamviec/lichlamviec';
 import Banglichlamviecbybs from './pages/ok/datlich';
 import Lichhenkham from './pages/lichhenkham/lichhenkham';
+import Khamlamsan from './pages/Khamlamsan/Khamlamsan';
+import Xacnhanthanhtoanbyletan from './pages/Letan/xacnhanthanhbyletan';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -120,10 +122,12 @@ function App() {
                         <Route path='/Giuongbenh' element={<IndexGiuong />} />
                         <Route path='/QuanLyPhongBenh' element={<QuanLyPhongBenh />} />
                         <Route path="/letan" element={<Letan />} />
-                        <Route path="/Khamlamsan" element={<KhamLamsan />} />
+                        <Route path="/Quanlykhambenh" element={<Quanlykhambenh />} />
                         <Route path="/Lichlamviecbybs" element={<Lichlamviec />} />
                         <Route path="/Banglichlamviecbybs" element={<Banglichlamviecbybs />} />
                         <Route path="/Lichhenkham" element={<Lichhenkham />} />
+                        <Route path="/Khamlamsan" element={<Khamlamsan />} />
+                         <Route path="/Xacnhanthanhtoanbyletan" element={<Xacnhanthanhtoanbyletan />} />
                         {/* Điều hướng mặc định đến trang chính nếu đã đăng nhập */}
                     </Routes>
                 </Admin>

@@ -859,7 +859,7 @@ interface ChiDinhThuoc {
   nguoi_chi_dinh: string;
 }
 
-const KhamLamSan: React.FC = () => {
+const Quanlykhambenh: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -2235,4 +2235,4 @@ const columns = [
   );
 };
 
-export default KhamLamSan;
+export default Quanlykhambenh;

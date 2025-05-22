@@ -665,7 +665,7 @@ const Letan: React.FC = () => {
                 <Divider>Thông tin bệnh nhân</Divider>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col span={8}>
                     <Form.Item
                       name="ho_ten"
                       label="Họ và tên"
@@ -674,7 +674,7 @@ const Letan: React.FC = () => {
                       <Input placeholder="Nhập họ và tên" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col span={15} style={{ marginLeft: '40px'}}>
                     <Form.Item
                       name="so_dien_thoai"
                       label="Số điện thoại"
@@ -689,7 +689,7 @@ const Letan: React.FC = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={8}>
+                  <Col span={7}>
                     <Form.Item
                       name="gioi_tinh"
                       label="Giới tính"
@@ -702,7 +702,7 @@ const Letan: React.FC = () => {
                       </Radio.Group>
                     </Form.Item>
                   </Col>
-                  <Col span={8}>
+                  <Col span={8} style={{ marginRight: '40px'}}>
                     <Form.Item
                       name="ngay_sinh"
                       label="Ngày sinh"
@@ -717,7 +717,7 @@ const Letan: React.FC = () => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={8}>
+                  <Col span={8} >
                     <Form.Item name="CMND" label="Số CMND/CCCD">
                       <Input placeholder="Nhập số CMND/CCCD" disabled={!!existingUser} />
                     </Form.Item>
@@ -725,17 +725,17 @@ const Letan: React.FC = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item name="dan_toc" label="Dân tộc">
+                  <Col span={7} style={{ marginRight: '40px'}}>
+                    <Form.Item name="dan_toc" label="Dân tộc" >
                       <Input placeholder="Nhập dân tộc" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                   <Col span={8}>
-                    <Form.Item name="nghe_nghiep" label="Nghề nghiệp">
+                    <Form.Item name="nghe_nghiep" label="Nghề nghiệp" style={{ marginRight: '40px'}}> 
                       <Input placeholder="Nhập nghề nghiệp" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-                  <Col span={8}>
+                  <Col span={8} >
                     <Form.Item
                       name="email"
                       label="Email"
@@ -747,7 +747,7 @@ const Letan: React.FC = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col span={11} style={{ marginRight: '40px'}}>
                     <Form.Item
                       name="dia_chi"
                       label="Địa chỉ"
