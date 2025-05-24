@@ -361,9 +361,10 @@ const Banglichlamviecbybs = () => {
   };
 
   return (
-     
     <div className="styles_body2">
-        <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Quản lý lịch làm việc</h1>
+      {/* Thêm dòng tiêu đề ở đây */}
+      <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Quản lý lịch làm việc</h1>
+      
       <Row gutter={16} style={{ minHeight: '80vh' }}>
         <Col span={8} style={{ marginTop: '-99px' }}>
           <Card title="Thêm Lịch Làm Việc" style={{ marginBottom: 16 }}>

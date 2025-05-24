@@ -1,377 +1,464 @@
-.styles_body2{
-    margin-top: 140px;
-    /* background: #e8f2f7; */
-    min-height: 65vh;
-    /* color: #003553; */
+.styles_body2 {
+  margin-top: 140px;
+  /* background: #e8f2f7; */
+  min-height: 65vh;
+  /* color: #003553; */
 }
-.styles_breadcrumb{
-    width: 100%;
-    position: relative;
+
+* .styles_body2 h1 {
+  color: #003553;
+  font-size: 28px;
+  font-weight: 700;
+  top: -135px;
+  left: -660px;
+  padding: 0;
+  text-align: center;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+} 
+/* .styles_body2 h1 {
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+  position: relative;
+  margin: 0 0 30px 0;
+  padding: 15px 0;
+  background: linear-gradient(135deg, #00b5f1 0%, #00e0ff 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 181, 241, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+   top: -162px;
+  left: -23px;
+} */
+.styles_breadcrumb {
+  width: 100%;
+  position: relative;
 }
-.styles_breadcrumb .styles_containerPartner{
-    max-width: 1180px;
-    padding-left: 0;
-    padding-right: 0;
+
+.styles_breadcrumb .styles_containerPartner {
+  max-width: 1180px;
+  padding-left: 0;
+  padding-right: 0;
 }
-.styles_breadcrumb .styles_breadcrumbs{
-    width: 100%;
-    overflow: auto;
-    height: fit-content;
-    margin-left: 174px;
-    
-}
-.styles_breadcrumb ul{
-    padding: 20px 0;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    font-weight: 600;
-    margin: 0;
-    width: 100%;
-}
-.styles_breadcrumb ul li{
-    display: flex;
-    align-items: center;
-    color: #003553;
-    font-size: 16px;
-    font-weight: 700;
-    font-family: sans-serif;
-   
-}
-.styles_breadcrumb .styles_text{
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    transform: translateY(-.5px);
-    gap: 5px;
-}
-.styles_breadcrumb .styles_last a{
-    /* color: #00b5f1; */
-}
-.styles_container1{
-    max-width: 1140px;
-    width: 100%;
-    margin: auto;
-    padding-right: 15px;
-    padding-left: 15px;
-}
-.ant-row{
-    margin-right: -16px;
-    margin-left: -16px;
-    row-gap: 0px;
-    display: flex;
-    flex-flow: row wrap;
-    min-width: 0
-}
-@media (min-width: 992px) {
-    .ant-rows {
-        display: block;
-        flex: 0 0 25%;
-        max-width: 25%;
-    }
-}
-.styles_panelsHeader{
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 4px 30px 0 rgba(116,157,206,.2);
-    overflow: hidden;
-    padding-bottom: 3px;
+
+.styles_breadcrumb .styles_breadcrumbs {
+  width: 100%;
+  overflow: auto;
+  height: fit-content;
+  margin-left: 174px;
 
 }
-.styles_infoBookingTitle{
-    color: #fff;
-    padding: 12px 16px;
-    background: linear-gradient(36deg,#00b5f1,#00e0ff);
-    font-size: 20px;
-    font-weight: 500;
-    line-height: normal;
+
+.styles_breadcrumb ul {
+  padding: 20px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  margin: 0;
+  width: 100%;
 }
-.styles_cardBody:last-child{
-    border-bottom: none;
+
+.styles_breadcrumb ul li {
+  display: flex;
+  align-items: center;
+  color: #003553;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: sans-serif;
+
 }
-.styles_cardBody{
-    padding: 12px 16px;
+
+.styles_breadcrumb .styles_text {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transform: translateY(-.5px);
+  gap: 5px;
 }
-.styles_cardBody ul , .styles_cardBody li{
-    list-style: none;
+
+.styles_breadcrumb .styles_last a {
+  /* color: #00b5f1; */
 }
-ul{
-    /* margin-top: ; */
-    margin-bottom: 1em;
+
+.styles_container1 {
+  max-width: 1140px;
+  width: 100%;
+  margin: auto;
+  padding-right: 15px;
+  padding-left: 15px;
 }
-.styles_cardBody ul li{
-    display: flex;
-    align-items: flex-start;
+
+.ant-row {
+  margin-right: -16px;
+  margin-left: -16px;
+  row-gap: 0px;
+  display: flex;
+  flex-flow: row wrap;
+  min-width: 0
 }
-.styles_cardBody ul li svg{
-    font-size: 19px !important;
-    width: 18px !important;
-    height: 18px !important;
-    margin-left: -41px !important;
-    color: #b1b1b1 !important;
- }
-.styles_cardBody ul li div{
-    flex: 1 1;
-    word-wrap: break-word;
- }
- .styles_cardBody ul li span{
-    margin: 0;
- }
- .styles_cardBody .styles_infoHopital .styles_address{
-    color: var(--grey-text, #858585);
-    font-size: 15px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
- }
- .styles_cardBody .styles_infoHopital{
-    margin: 0;
-    margin-left: 10px;
-    margin-top: -2px;
- }
- /* .styles_cardBody__FetYm ul>*~* {
+
+@media (min-width: 992px) {
+  .ant-rows {
+    display: block;
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+}
+
+.styles_panelsHeader {
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 30px 0 rgba(116, 157, 206, .2);
+  overflow: hidden;
+  padding-bottom: 3px;
+
+}
+
+.styles_infoBookingTitle {
+  color: #fff;
+  padding: 12px 16px;
+  background: linear-gradient(36deg, #00b5f1, #00e0ff);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.styles_cardBody:last-child {
+  border-bottom: none;
+}
+
+.styles_cardBody {
+  padding: 12px 16px;
+}
+
+.styles_cardBody ul,
+.styles_cardBody li {
+  list-style: none;
+}
+
+ul {
+  /* margin-top: ; */
+  margin-bottom: 1em;
+}
+
+.styles_cardBody ul li {
+  display: flex;
+  align-items: flex-start;
+}
+
+.styles_cardBody ul li svg {
+  font-size: 19px !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin-left: -41px !important;
+  color: #b1b1b1 !important;
+}
+
+.styles_cardBody ul li div {
+  flex: 1 1;
+  word-wrap: break-word;
+}
+
+.styles_cardBody ul li span {
+  margin: 0;
+}
+
+.styles_cardBody .styles_infoHopital .styles_address {
+  color: var(--grey-text, #858585);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.styles_cardBody .styles_infoHopital {
+  margin: 0;
+  margin-left: 10px;
+  margin-top: -2px;
+}
+
+/* .styles_cardBody__FetYm ul>*~* {
     margin-top: 8px;
 } */
- .ant_rowsx{
-    padding-left: 16px;
-    padding-right: 16px;
- }
+.ant_rowsx {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
 @media (min-width: 992px) {
-    .ant_rowsx {
-        display: block;
-        flex: 0 0 75%;
-        max-width: 75%;
-    }
+  .ant_rowsx {
+    display: block;
+    flex: 0 0 75%;
+    max-width: 75%;
+  }
 }
-.styles_chooseBookingInfo{
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 4px 30px 0 rgba(116,157,206,.2);
-    margin-bottom: 20px;
-    overflow: hidden;
+
+.styles_chooseBookingInfo {
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 30px 0 rgba(116, 157, 206, .2);
+  margin-bottom: 20px;
+  overflow: hidden;
 }
-.styles_panelsHeader1{
-    color: #fff;
-    padding: 0px 16px;
-    background: linear-gradient(36deg,#00b5f1,#00e0ff);
-    font-size: 20px;
-    font-weight: 500;
-    line-height: normal;
-    text-align: center;
+
+.styles_panelsHeader1 {
+  color: #fff;
+  padding: 0px 16px;
+  background: linear-gradient(36deg, #00b5f1, #00e0ff);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: normal;
+  text-align: center;
 }
-.styles_animationTop{
-    animation-name: styles_animationTop__2p2gr;
-    opacity: 1;
-    transform: translateY(0px);
-    
+
+.styles_animationTop {
+  animation-name: styles_animationTop__2p2gr;
+  opacity: 1;
+  transform: translateY(0px);
+
 }
-.styles_infoBookingTitle{
-    background: #1da1f2;
-    color: #fff;
-    background: linear-gradient(36deg, #00b5f1, #00e0ff) !important;
-    font-size: 20px;
-    font-weight: 500;
-    line-height: normal;
+
+.styles_infoBookingTitle {
+  background: #1da1f2;
+  color: #fff;
+  background: linear-gradient(36deg, #00b5f1, #00e0ff) !important;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: normal;
 }
+
 @media only screen and (min-width: 768px) {
-    .styles_chooseDate{
-        height: -moz-fit-content;
-        height: fit-content;
-    }
+  .styles_chooseDate {
+    height: -moz-fit-content;
+    height: fit-content;
+  }
 }
-.styles_thoigian .styles_calendar .styles_header{
-    text-align: center;
-    margin-bottom: 5px;
-    padding: 12px;
-    color: #1ca1f4;
-    font-size: 1.1rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    border-radius: 5px 5px 0 0;
-    /* height: 500px; */
+
+.styles_thoigian .styles_calendar .styles_header {
+  text-align: center;
+  margin-bottom: 5px;
+  padding: 12px;
+  color: #1ca1f4;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 5px 5px 0 0;
+  /* height: 500px; */
 }
-.ant-space-align-center{
-    align-items: center;
-    display: inline-flex;
+
+.ant-space-align-center {
+  align-items: center;
+  display: inline-flex;
 }
-.styles_thoigian .styles_calendar .styles_header .styles_datetime{
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: 28.287px;
-    text-transform: uppercase;
-    background: linear-gradient(83.63deg, #00b5f1 33.34%, #00e0ff 113.91%);
-    color: transparent;
-    -webkit-background-clip: text;
+
+.styles_thoigian .styles_calendar .styles_header .styles_datetime {
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 28.287px;
+  text-transform: uppercase;
+  background: linear-gradient(83.63deg, #00b5f1 33.34%, #00e0ff 113.91%);
+  color: transparent;
+  -webkit-background-clip: text;
 }
-.styles_thoigian .styles_calendar .styles_header button{
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-   
+
+.styles_thoigian .styles_calendar .styles_header button {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
 }
+
 .hide-day {
-    display: none !important;  /* Ẩn các ngày của tháng 11 */
+  display: none !important;
+  /* Ẩn các ngày của tháng 11 */
 }
 
 
-.ant-btn-icon-only{
-    width: 40px;
-    height: 40px;
-    padding: 6.4px 0;
-    font-size: 16px;
-    border-radius: 3px;
-    vertical-align: -3px;
-    border-color: transparent;
-    background: transparent;
-    text-shadow: none;
-    box-shadow: none;
-}
-.styles_thoigian .styles_calendar .styles_header button svg{
-    font-size: 1.3rem;
-}
-.styles_thoigian .styles_calendar .styles_weekContainer{
-    font-weight: 500;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    align-items: center;
-    align-content: center;
-}
-.styles_thoigian .styles_calendar .styles_weekContainer .styles_weekCell:first-child{
-    color: #fa531f;
-    
+.ant-btn-icon-only {
+  width: 40px;
+  height: 40px;
+  padding: 6.4px 0;
+  font-size: 16px;
+  border-radius: 3px;
+  vertical-align: -3px;
+  border-color: transparent;
+  background: transparent;
+  text-shadow: none;
+  box-shadow: none;
 }
 
-.styles_thoigian .styles_calendar .styles_weekContainer .styles_weekCell{
-    border-top: 1px solid #e4e7ee;
-    font-size: 1rem;
-    white-space: nowrap;
-    background: #f7f7f7;
-    
-}
-.styles_thoigian .styles_calendar .styles_weekCell{
-    /* pointer-events: none; */
-    flex-grow: 0;
-    flex-shrink: 0;
-    flex-basis: calc(100% / 7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 15px;
-    border-right: 1px solid #dfe3eb;
-    border-bottom: 1px solid #dfe3eb;
-}
-.styles_dayContainer{
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    align-items: center;
-    align-content: center;
-}
-.styles_thoigian .styles_calendar .styles_dayCell{
-    /* pointer-events: none; */
-    flex-grow: 0;
-    flex-shrink: 0;
-    flex-basis: calc(100%/7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 15px;
-    border-right: 1px solid #dfe3eb;
-    border-bottom: 1px solid #dfe3eb;
-}
-.styles_thoigian .styles_calendar .styles_dayCell span{
-    opacity: .2;
-    padding: 10px;
-    min-width: 40px;
-    text-align: center;
-}
-.styles_thoigian .styles_calendar .styles_NowDay span{
-    opacity: 1;
-    border-radius: 5px;
-    background-color: #f2f2f2;
-    color: red;
-    cursor: pointer;
-    font-weight: 500;
+.styles_thoigian .styles_calendar .styles_header button svg {
+  font-size: 1.3rem;
 }
 
-.styles_thoigian .styles_calendar .styles_availableDay span{
-    opacity: .8 !important;
-    border-radius: 5px;
-    /* cursor: pointer; */
-    /* background: linear-gradient(48deg, #00b5f1, #00e0ff); */
-    /* background-color: #f2f2f2; */
-    /* background-color: black; */
-    transition: background .2s ease-in-out;
+.styles_thoigian .styles_calendar .styles_weekContainer {
+  font-weight: 500;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+  align-content: center;
 }
+
+.styles_thoigian .styles_calendar .styles_weekContainer .styles_weekCell:first-child {
+  color: #fa531f;
+
+}
+
+.styles_thoigian .styles_calendar .styles_weekContainer .styles_weekCell {
+  border-top: 1px solid #e4e7ee;
+  font-size: 1rem;
+  white-space: nowrap;
+  background: #f7f7f7;
+
+}
+
+.styles_thoigian .styles_calendar .styles_weekCell {
+  /* pointer-events: none; */
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: calc(100% / 7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+  border-right: 1px solid #dfe3eb;
+  border-bottom: 1px solid #dfe3eb;
+}
+
+.styles_dayContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+  align-content: center;
+}
+
+.styles_thoigian .styles_calendar .styles_dayCell {
+  /* pointer-events: none; */
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: calc(100%/7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+  border-right: 1px solid #dfe3eb;
+  border-bottom: 1px solid #dfe3eb;
+}
+
+.styles_thoigian .styles_calendar .styles_dayCell span {
+  opacity: .2;
+  padding: 10px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.styles_thoigian .styles_calendar .styles_NowDay span {
+  opacity: 1;
+  border-radius: 5px;
+  background-color: #f2f2f2;
+  color: red;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.styles_thoigian .styles_calendar .styles_availableDay span {
+  opacity: .8 !important;
+  border-radius: 5px;
+  /* cursor: pointer; */
+  /* background: linear-gradient(48deg, #00b5f1, #00e0ff); */
+  /* background-color: #f2f2f2; */
+  /* background-color: black; */
+  transition: background .2s ease-in-out;
+}
+
 .styles_SelectedDay {
-    border-radius: 5px;
-    /* font-weight: bold; */
-    background: linear-gradient(48deg, #00b5f1, #00e0ff);
-    color: #fff !important;
-    
+  border-radius: 5px;
+  /* font-weight: bold; */
+  background: linear-gradient(48deg, #00b5f1, #00e0ff);
+  color: #fff !important;
+
 }
+
 .styles_availableDay:hover {
-    cursor: pointer; /* Hiển thị con trỏ khi hover vào ngày có thể chọn */
-    background-color: #f1f1f1; /* Màu nền khi hover vào ngày có lịch */
+  cursor: pointer;
+  /* Hiển thị con trỏ khi hover vào ngày có thể chọn */
+  background-color: #f1f1f1;
+  /* Màu nền khi hover vào ngày có lịch */
 }
 
-.styles_thoigian .styles_calendar .styles_availableDay span:hover{
-    background-color: red;
-/* background: linear-gradient(48deg, #00b5f1, #00e0ff); */
+.styles_thoigian .styles_calendar .styles_availableDay span:hover {
+  background-color: red;
+  /* background: linear-gradient(48deg, #00b5f1, #00e0ff); */
 }
+
 .styles_thoigian .styles_calendar .styles_dayCell span:hover {
-    border-radius: 5px;
-    background: linear-gradient(48deg, #00b5f1, #00e0ff);
-    color: #fff !important;
-    cursor: pointer;
-    font-weight: 500;
+  border-radius: 5px;
+  background: linear-gradient(48deg, #00b5f1, #00e0ff);
+  color: #fff !important;
+  cursor: pointer;
+  font-weight: 500;
 }
-.styles_dateAndTime .styles_dateTimeDivider{
-    padding: 10px 20px;
-    max-width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-content: center;
-    justify-items: center;
-    align-items: center;
+
+.styles_dateAndTime .styles_dateTimeDivider {
+  padding: 10px 20px;
+  max-width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-content: center;
+  justify-items: center;
+  align-items: center;
 }
-.styles_dateAndTime .styles_dateTimeDivider .styles_divider{
-    border-top: 2px solid #00e0ff;
-    flex: 1 1;
+
+.styles_dateAndTime .styles_dateTimeDivider .styles_divider {
+  border-top: 2px solid #00e0ff;
+  flex: 1 1;
 }
-.giokham_time .giokham_shifts{
-    margin: 0 20px;
+
+.giokham_time .giokham_shifts {
+  margin: 0 20px;
 }
-.giokham_time .giokham_shifts .giokham_listShifts{
-    display: flex;
-    flex-wrap: wrap;
-    list-style: none;
-    gap: 45px; /* Tạo khoảng cách giữa các nút */
+
+.giokham_time .giokham_shifts .giokham_listShifts {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  gap: 45px;
+  /* Tạo khoảng cách giữa các nút */
 
 }
-.giokham_time .giokham_shifts .giokham_listShifts li{
-    margin-bottom: 16px;
+
+.giokham_time .giokham_shifts .giokham_listShifts li {
+  margin-bottom: 16px;
 }
-.giokham_time .giokham_shifts .giokham_listShifts .giokham_btnTime{
-    border: 1px solid #00e0ff;
-    font-size: 20px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: normal;
-    width: 151px;
-    height: auto;
-    padding: 12px 2px;
-    transition: background .15s ease;
-    margin-left: -32px;
-    
+
+.giokham_time .giokham_shifts .giokham_listShifts .giokham_btnTime {
+  border: 1px solid #00e0ff;
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+  width: 151px;
+  height: auto;
+  padding: 12px 2px;
+  transition: background .15s ease;
+  margin-left: -32px;
+
 }
-.giokham_time .giokham_shifts .giokham_listShifts .giokham_btnTime:hover{
-    background: linear-gradient(83.63deg, #00b5f1 33.34%, #00e0ff 113.91%);
-    background-color: #00b5f1 !important;
-    cursor: pointer;
+
+.giokham_time .giokham_shifts .giokham_listShifts .giokham_btnTime:hover {
+  background: linear-gradient(83.63deg, #00b5f1 33.34%, #00e0ff 113.91%);
+  background-color: #00b5f1 !important;
+  cursor: pointer;
 }
 
 /* Main Container */
@@ -388,7 +475,8 @@ ul{
 }
 
 /* Cards */
-.add-shift-card, .schedule-card {
+.add-shift-card,
+.schedule-card {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 24px;

@@ -78,6 +78,7 @@ const Xacnhanthanhtoanbyletan = () => {
     }
   };
 
+
   const handleConfirmPayment = async () => {
     if (!appointment?.appointment_id) {
       message.error('Không có lịch hẹn để xác nhận thanh toán!');
@@ -106,7 +107,6 @@ const Xacnhanthanhtoanbyletan = () => {
       handleSearch();
     }
   };
-
   return (
     <div className="container mx-auto p-4 max-w-3xl">
       <Card 
