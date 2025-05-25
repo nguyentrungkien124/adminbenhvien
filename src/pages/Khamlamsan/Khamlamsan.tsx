@@ -21,7 +21,8 @@ import {
   Tooltip,
   Avatar,
   Tabs,
-  Input as AntInput
+  Input as AntInput,
+  DatePicker,
 } from 'antd';
 import {
   SearchOutlined,
@@ -38,10 +39,10 @@ import {
   BellOutlined,
   CalendarOutlined,
   HomeOutlined,
-  FileTextOutlined
+  FileTextOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -63,7 +64,7 @@ interface Appointment {
   bao_hiem_y_te: boolean | null;
   created_at: string;
   ket_qua_kham: string | null;
-    so_thu_tu?: string; // Thêm trường so_thu_tu
+  so_thu_tu?: string;
 }
 
 interface Department {
@@ -95,12 +96,37 @@ const Khamlamsan: React.FC = () => {
   const [transferLoading, setTransferLoading] = useState<boolean>(false);
   const [ketLuanLoading, setKetLuanLoading] = useState<boolean>(false);
   const [activeTabKey, setActiveTabKey] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(dayjs());
+  const [khoaName, setKhoaName] = useState<string>('Không có khoa'); // State để lưu tên khoa
 
   // Lấy thông tin từ session
-  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const storedUser = sessionStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : {};
   const khoaId = user.khoa_id;
   const bacSiId = user.bac_si_id;
-  const khoaName = user.khoa_name || 'Tiêu hóa'; // Fallback nếu không có tên khoa
+  console.log('User Info:', khoaId);
+
+  // Lấy tên khoa từ API dựa trên khoa_id
+  useEffect(() => {
+    const fetchKhoaName = async () => {
+      if (khoaId) {
+        try {
+          const response = await axios.get(`http://localhost:9999/api/khoa/getkhoabyid/${khoaId}`);
+          const khoaData = response.data; // Giả sử API trả về dạng { id: number, ten: string }
+          console.log('Khoa Data:', khoaData);
+          setKhoaName(khoaData[0]?.ten || 'Không có khoa');
+        } catch (error) {
+          console.error('Error fetching khoa name:', error);
+          setKhoaName('Không có khoa');
+          message.error('Không thể lấy thông tin khoa. Vui lòng thử lại sau.');
+        }
+      } else {
+        setKhoaName('Không có khoa');
+      }
+    };
+
+    fetchKhoaName();
+  }, [khoaId]);
 
   // Lấy dữ liệu lịch hẹn và khoa
   useEffect(() => {
@@ -118,7 +144,7 @@ const Khamlamsan: React.FC = () => {
           bac_si_id: appt.bac_si_id === null ? null : appt.bac_si_id,
           status: Number(appt.status),
           ket_qua_kham: appt.ket_qua_kham || null,
-           so_thu_tu: appt.so_thu_tu || null
+          so_thu_tu: appt.so_thu_tu || null,
         }));
 
         setAppointments(data);
@@ -166,9 +192,17 @@ const Khamlamsan: React.FC = () => {
     }
   }, [khoaId]);
 
-  // Filter appointments based on search and status
+  // Filter appointments based on search, status, and date
   useEffect(() => {
     let filtered = appointments;
+
+    // Filter by date
+    if (selectedDate) {
+      const selectedDateStr = selectedDate.format('YYYY-MM-DD');
+      filtered = filtered.filter((appt) =>
+        dayjs(appt.created_at).format('YYYY-MM-DD') === selectedDateStr
+      );
+    }
 
     // Filter by search text
     if (searchText) {
@@ -196,7 +230,13 @@ const Khamlamsan: React.FC = () => {
     }
 
     setFilteredAppointments(filtered);
-  }, [searchText, statusFilter, appointments, activeTabKey]);
+
+    // Cập nhật lại thống kê dựa trên dữ liệu đã lọc
+    const total = filtered.length;
+    const pending = filtered.filter((app: Appointment) => app.status === 0).length;
+    const received = filtered.filter((app: Appointment) => app.status === 1).length;
+    setStats({ total, pending, received });
+  }, [searchText, statusFilter, appointments, activeTabKey, selectedDate]);
 
   // Handle accepting an appointment
   const handleNhanLich = async (appointmentId: number) => {
@@ -214,11 +254,6 @@ const Khamlamsan: React.FC = () => {
         appt.id === appointmentId ? { ...appt, bac_si_id: bacSiId, status: 1 } : appt
       );
       setAppointments(updatedAppointments);
-
-      // Update statistics
-      const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
-      const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
-      setStats({ ...stats, pending, received });
 
       message.success('Nhận lịch khám thành công!');
     } catch (error) {
@@ -246,12 +281,6 @@ const Khamlamsan: React.FC = () => {
       const updatedAppointments = appointments.filter((appt) => appt.id !== selectedAppointmentId);
       setAppointments(updatedAppointments);
 
-      // Update statistics
-      const total = updatedAppointments.length;
-      const pending = updatedAppointments.filter((app: Appointment) => app.status === 0).length;
-      const received = updatedAppointments.filter((app: Appointment) => app.status === 1).length;
-      setStats({ total, pending, received });
-
       message.success('Chuyển khoa thành công');
       setIsModalVisible(false);
       setSelectedKhoaId('');
@@ -266,41 +295,41 @@ const Khamlamsan: React.FC = () => {
   };
 
   // Handle save conclusion
-  const handleLuuKetLuan = async () => {
-    if (!selectedAppointmentId || !ketQuaKham.trim()) {
-      message.error('Vui lòng nhập kết luận khám');
-      return;
-    }
+const handleLuuKetLuan = async () => {
+  if (!selectedAppointmentId || !ketQuaKham.trim()) {
+    message.error('Vui lòng nhập kết luận khám');
+    return;
+  }
 
-    try {
-      setKetLuanLoading(true);
-      await axios.put(`http://localhost:9999/api/letan/ket-luan/${selectedAppointmentId}`, {
-        ket_qua_kham: ketQuaKham,
-        bac_si_id: bacSiId,
-      });
+  try {
+    setKetLuanLoading(true);
+    await axios.put(`http://localhost:9999/api/letan/ket-luan/${selectedAppointmentId}`, {
+      ket_qua_kham: ketQuaKham,
+      bac_si_id: bacSiId,
+    });
 
-      // Update local state
-      const updatedAppointments = appointments.map((appt) =>
-        appt.id === selectedAppointmentId ? { ...appt, ket_qua_kham: ketQuaKham } : appt
-      );
-      setAppointments(updatedAppointments);
+    // Update local state
+    const updatedAppointments = appointments.map((appt) =>
+      appt.id === selectedAppointmentId ? { ...appt, ket_qua_kham: ketQuaKham } : appt
+    );
+    setAppointments(updatedAppointments);
 
-      message.success('Lưu kết luận thành công');
-      setIsKetLuanModalVisible(false);
-      setKetQuaKham('');
-      setSelectedAppointmentId(null);
-      setSelectedAppointment(null);
-    } catch (error) {
-      console.error('Error saving conclusion:', error);
-      message.error('Có lỗi khi lưu kết luận. Vui lòng thử lại.');
-    } finally {
-      setKetLuanLoading(false);
-    }
-  };
+    message.success('Lưu kết luận thành công');
+    setIsKetLuanModalVisible(false);
+    setKetQuaKham('');
+    setSelectedAppointmentId(null);
+    setSelectedAppointment(null);
+  } catch (error) {
+    console.error('Error saving conclusion:', error);
+    message.error('Có lỗi khi lưu kết luận. Vui lòng thử lại.');
+  } finally {
+    setKetLuanLoading(false);
+  }
+};
 
   // Show transfer modal
   const showChuyenKhoaModal = (appointmentId: number) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setIsModalVisible(true);
@@ -308,7 +337,7 @@ const Khamlamsan: React.FC = () => {
 
   // Show conclusion modal
   const showKetLuanModal = (appointmentId: number, currentKetQua: string | null) => {
-    const appt = appointments.find(a => a.id === appointmentId) || null;
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
     setSelectedAppointment(appt);
     setSelectedAppointmentId(appointmentId);
     setKetQuaKham(currentKetQua || '');
@@ -370,15 +399,12 @@ const Khamlamsan: React.FC = () => {
       key: 'id',
       width: 80,
     },
-    
     {
       title: 'Số thứ tự',
       dataIndex: 'so_thu_tu',
       key: 'so_thu_tu',
       width: 100,
-      render: (so_thu_tu: string | null) => (
-        <Text>{so_thu_tu || '—'}</Text> // Hiển thị "—" nếu không có số thứ tự
-      ),
+      render: (so_thu_tu: string | null) => <Text>{so_thu_tu || '—'}</Text>,
     },
     {
       title: 'Thông tin bệnh nhân',
@@ -469,7 +495,7 @@ const Khamlamsan: React.FC = () => {
               Kết luận
             </Button>
           )}
-          <Button 
+          <Button
             type="default"
             icon={<SwapOutlined />}
             size="middle"
@@ -496,7 +522,7 @@ const Khamlamsan: React.FC = () => {
             </Breadcrumb>
             <Title level={2} style={{ margin: '16px 0' }}>
               <MedicineBoxOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-              Quản lý lịch hẹn - Khoa {khoaName}
+              Quản lý khám bệnh - Khoa {khoaName}
             </Title>
           </Card>
         </Col>
@@ -539,7 +565,18 @@ const Khamlamsan: React.FC = () => {
         <Col span={24}>
           <Card>
             <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={16}>
+              <Col span={8}>
+                <DatePicker
+                  value={selectedDate}
+                  onChange={(date) => setSelectedDate(date)}
+                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  size="large"
+                  placeholder="Chọn ngày"
+                  allowClear
+                />
+              </Col>
+              <Col span={8}>
                 <Input
                   placeholder="Tìm kiếm theo tên bệnh nhân hoặc số điện thoại"
                   prefix={<SearchOutlined />}
@@ -564,31 +601,37 @@ const Khamlamsan: React.FC = () => {
             </Row>
 
             <Tabs activeKey={activeTabKey} onChange={handleTabChange} size="large">
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><FileSearchOutlined /> Tất cả ({stats.total})</span>
-                } 
+                  <span>
+                    <FileSearchOutlined /> Tất cả ({stats.total})
+                  </span>
+                }
                 key="all"
               />
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><ClockCircleOutlined /> Chưa nhận ({stats.pending})</span>
-                } 
+                  <span>
+                    <ClockCircleOutlined /> Chưa nhận ({stats.pending})
+                  </span>
+                }
                 key="pending"
               />
-              <TabPane 
+              <TabPane
                 tab={
-                  <span><CheckCircleOutlined /> Đã nhận ({stats.received})</span>
-                } 
+                  <span>
+                    <CheckCircleOutlined /> Đã nhận ({stats.received})
+                  </span>
+                }
                 key="received"
               />
             </Tabs>
 
             <Spin spinning={loading}>
               {filteredAppointments.length === 0 ? (
-                <Empty 
-                  description="Không có lịch hẹn nào" 
-                  image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                <Empty
+                  description="Không có lịch hẹn nào"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
                   style={{ margin: '40px 0' }}
                 />
               ) : (
@@ -596,11 +639,11 @@ const Khamlamsan: React.FC = () => {
                   columns={columns}
                   dataSource={filteredAppointments}
                   rowKey="id"
-                  pagination={{ 
+                  pagination={{
                     pageSize: 10,
                     showSizeChanger: true,
                     showTotal: (total) => `Tổng cộng ${total} lịch hẹn`,
-                    showQuickJumper: true
+                    showQuickJumper: true,
                   }}
                   bordered
                   size="middle"
@@ -641,7 +684,8 @@ const Khamlamsan: React.FC = () => {
                     </Text>
                     {selectedAppointment.bao_hiem_y_te !== null && (
                       <Text type="secondary">
-                        <InsuranceOutlined /> {selectedAppointment.bao_hiem_y_te ? 'Có BHYT' : 'Không có BHYT'}
+                        <InsuranceOutlined />{' '}
+                        {selectedAppointment.bao_hiem_y_te ? 'Có BHYT' : 'Không có BHYT'}
                         {selectedAppointment.so_bao_hiem_y_te && ` - ${selectedAppointment.so_bao_hiem_y_te}`}
                       </Text>
                     )}
@@ -650,7 +694,7 @@ const Khamlamsan: React.FC = () => {
               </Space>
             </Card>
 
-            <Card 
+            <Card
               title={
                 <Space>
                   <InfoCircleOutlined style={{ color: '#fa8c16' }} />

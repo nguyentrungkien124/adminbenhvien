@@ -1,4 +1,3 @@
-// Admin.tsx (phần liên quan)
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Breadcrumb, Button, Badge, Popover, List, Typography } from 'antd';
 import {
@@ -18,7 +17,7 @@ import {
   TeamOutlined,
   ShopOutlined,
   ReadOutlined,
-  IdcardOutlined
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -29,8 +28,8 @@ const theme = {
     token: {
       colorBgContainer: '#ffffff',
       borderRadiusLG: '8px',
-    }
-  })
+    },
+  }),
 };
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -88,7 +87,7 @@ const disconnectSocket = () => {
   }
 };
 
-// Menu items (giảm bớt để tập trung vào vấn đề)
+// Menu items
 const items2 = [
   {
     key: 'sub4',
@@ -96,7 +95,7 @@ const items2 = [
     label: 'Thống kê',
     children: [
       { key: '1', label: <Link to="/thongke">Danh sách</Link> },
-    ]
+    ],
   },
   {
     key: 'sub1',
@@ -105,7 +104,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/Index">Danh sách</Link> },
       { key: '2', label: <Link to="/create">Thêm khoa</Link> },
-    ]
+    ],
   },
   {
     key: 'sub2',
@@ -114,7 +113,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexBS">Danh sách</Link> },
       { key: '2', label: <Link to="/createBS">Thêm bác sĩ</Link> },
-    ]
+    ],
   },
   {
     key: 'sub3',
@@ -123,7 +122,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexPP">Danh sách</Link> },
       { key: '2', label: <Link to="/createPP">Thêm sản phẩm</Link> },
-    ]
+    ],
   },
   {
     key: 'sub5',
@@ -132,7 +131,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexKho">Danh sách</Link> },
       { key: '2', label: <Link to="/createKho">Thêm kho</Link> },
-    ]
+    ],
   },
   {
     key: 'sub7',
@@ -141,7 +140,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexCM">Danh sách</Link> },
       { key: '2', label: <Link to="/createCM">Thêm chuyên môn</Link> },
-    ]
+    ],
   },
   {
     key: 'sub8',
@@ -150,7 +149,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexNTTB">Nhóm trang thiết bị</Link> },
       { key: '2', label: <Link to="/indexTTB">Trang thiết bị</Link> },
-    ]
+    ],
   },
   {
     key: 'sub9',
@@ -159,7 +158,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/indexCTTGoikham">Gói khám</Link> },
       { key: '2', label: <Link to="/indexGoikham">Chi tiết gói khám</Link> },
-    ]
+    ],
   },
   {
     key: 'sub10',
@@ -168,7 +167,7 @@ const items2 = [
     children: [
       { key: '1', label: <Link to="/Tintuc">Tin tức</Link> },
       { key: '2', label: <Link to="/IndexLoaiTinTuc">Loại tin tức</Link> },
-    ]
+    ],
   },
   {
     key: 'sub11',
@@ -176,7 +175,7 @@ const items2 = [
     label: 'Khách hàng',
     children: [
       { key: '1', label: <Link to="/Khachhang">Khách hàng</Link> },
-    ]
+    ],
   },
   {
     key: 'sub12',
@@ -184,7 +183,7 @@ const items2 = [
     label: 'Nội trú',
     children: [
       { key: '1', label: <Link to="/Noitru">Nội trú</Link> },
-    ]
+    ],
   },
   {
     key: 'sub13',
@@ -192,7 +191,7 @@ const items2 = [
     label: 'Giường bệnh',
     children: [
       { key: '1', label: <Link to="/Giuongbenh">Giường bệnh</Link> },
-    ]
+    ],
   },
   {
     key: 'sub15',
@@ -200,7 +199,7 @@ const items2 = [
     label: 'Lễ tân',
     children: [
       { key: '1', label: <Link to="/Letan">Lễ tân</Link> },
-    ]
+    ],
   },
   {
     key: 'sub16',
@@ -208,7 +207,7 @@ const items2 = [
     label: 'Quản lý khám bệnh',
     children: [
       { key: '1', label: <Link to="/Quanlykhambenh">Quản lý khám bệnh</Link> },
-    ]
+    ],
   },
   {
     key: 'sub17',
@@ -216,7 +215,7 @@ const items2 = [
     label: 'Lịch làm việc',
     children: [
       { key: '1', label: <Link to="/Lichlamviecbybs">Lịch làm việc</Link> },
-    ]
+    ],
   },
   {
     key: 'sub18',
@@ -224,7 +223,7 @@ const items2 = [
     label: 'Bảng lịch làm việc',
     children: [
       { key: '1', label: <Link to="/Banglichlamviecbybs">Bảng lịch làm việc</Link> },
-    ]
+    ],
   },
   {
     key: 'sub19',
@@ -232,36 +231,42 @@ const items2 = [
     label: 'Lịch hẹn khám',
     children: [
       { key: '1', label: <Link to="/Lichhenkham">Lịch hẹn khám</Link> },
-    ]
-  }
-  ,
+    ],
+  },
   {
     key: 'sub20',
     icon: <IdcardOutlined />,
     label: 'Quản lý khám lâm sàng',
     children: [
       { key: '1', label: <Link to="/Khamlamsan">Quản lý khám lâm sàng</Link> },
-    ]
-  }
-   ,
+    ],
+  },
   {
     key: 'sub21',
     icon: <IdcardOutlined />,
     label: 'Thanh toán',
     children: [
       { key: '1', label: <Link to="/Xacnhanthanhtoanbyletan">Thanh toán</Link> },
-    ]
-  }
+    ],
+  },
+  {
+    key: 'sub22',
+    icon: <IdcardOutlined />,
+    label: 'Thống kê',
+    children: [
+      { key: '1', label: <Link to="/StatisticsPage">Thống kê</Link> },
+    ],
+  },
 ];
 
-const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: () => void }) => {
+const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ children, onLogout }) => {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
   const [role, setRole] = useState<string | null>(null);
-  const [notificationCount, setNotificationCount] = useState(0); // Số thông báo từ notifications
-  const [appointmentCount, setAppointmentCount] = useState(0); // Số lịch hẹn từ server
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [appointmentCount, setAppointmentCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [socketError, setSocketError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<{ ho_ten: string; ten_khoa: string } | null>(null);
@@ -269,8 +274,8 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
   const navigate = useNavigate();
 
   console.log('Admin component re-rendered at', new Date().toISOString());
-  console.log('Notifications:', notifications); // Debug notifications
-  console.log('Notification Count:', notificationCount); // Debug notificationCount
+  console.log('Notifications:', notifications);
+  console.log('Notification Count:', notificationCount);
 
   // Initialize user data
   useEffect(() => {
@@ -331,7 +336,7 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
     if (storedNotifications) {
       const parsedNotifications: Notification[] = JSON.parse(storedNotifications);
       setNotifications(parsedNotifications);
-      setNotificationCount(parsedNotifications.filter(noti => !noti.seen).length);
+      setNotificationCount(parsedNotifications.filter((noti) => !noti.seen).length);
     }
 
     const socket = connectSocket();
@@ -357,12 +362,12 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
         localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
         return updatedNotifications;
       });
-      setNotificationCount((prev) => prev + 1); // Tăng dựa trên notifications
+      setNotificationCount((prev) => prev + 1);
     });
 
     socket.on('appointmentCount', (data: AppointmentCountData) => {
       console.log('Received appointment count:', data.count, 'at', new Date().toISOString());
-      setAppointmentCount(data.count); // Chỉ cập nhật appointmentCount
+      setAppointmentCount(data.count);
     });
 
     socket.on('connect_error', (error) => {
@@ -413,28 +418,35 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
   };
 
   const filteredMenuItems = items2
-    .filter(item => {
+    .filter((item) => {
       if (role === 'admin') {
         return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
       } else if (role === 'bacsi') {
-        return ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19','sub20'].includes(item.key);
+        // Kiểm tra khoa_id
+        if (userData?.khoa_id && parseInt(userData.khoa_id) === 20) {
+          // Chỉ hiển thị sub20, sub2 và sub8 khi khoa_id = 20
+          return ['sub20', 'sub2', 'sub8'].includes(item.key);
+        } else {
+          // Các mục mặc định khi khoa_id khác 20
+          const baseItems = ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19', 'sub22'];
+          return baseItems.includes(item.key);
+        }
       } else if (role === 'letan') {
-        // return item.key === 'sub15','sub21';
-       return ['sub15','sub21'].includes(item.key);
+        return ['sub15', 'sub21'].includes(item.key);
       }
       return false;
     })
-    .map(item => {
+    .map((item) => {
       if (role === 'bacsi') {
         if (item.key === 'sub2') {
           return {
             ...item,
-            children: item.children.filter(child => child.key === '1')
+            children: item.children.filter((child) => child.key === '1'),
           };
         } else if (item.key === 'sub8') {
           return {
             ...item,
-            children: item.children.filter(child => child.key === '2')
+            children: item.children.filter((child) => child.key === '2'),
           };
         }
       }
@@ -456,7 +468,7 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
             style={{
               cursor: 'pointer',
               backgroundColor: item.seen ? '#f5f5f5' : '#e6f7ff',
-              padding: '8px',
+              padding: '8px', // Đã sửa lỗi cú pháp ở đây
               borderBottom: '1px solid #f0f0f0',
             }}
           >
@@ -474,37 +486,55 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
 
   const userInfoContent = (
     <div style={{ padding: '8px', width: '200px' }}>
-      <p><strong>Tên:</strong> {userInfo?.ho_ten || 'Không có tên'}</p>
-      <p><strong>Khoa:</strong> {userInfo?.ten_khoa || 'Không có khoa'}</p>
+      <p>
+        <strong>Tên:</strong> {userInfo?.ho_ten || 'Không có tên'}
+      </p>
+      <p>
+        <strong>Khoa:</strong> {userInfo?.ten_khoa || 'Không có khoa'}
+      </p>
     </div>
   );
 
   return (
     <Layout>
       <Header style={{ backgroundColor: '#31304d', display: 'flex', alignItems: 'center', padding: '0 24px' }}>
-        <div className="logo" style={{ width: 120, height: 31, margin: '16px 24px 16px 0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <img src="../image/logobenhvienKhoaiChau-removebg-preview.png" alt="Logo" style={{ width: 65, height: 65, borderRadius: '10px' }} />
+        <div
+          className="logo"
+          style={{
+            width: 120,
+            height: 31,
+            margin: '16px 24px 16px 0',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <img
+            src="../image/logobenhvienKhoaiChau-removebg-preview.png"
+            alt="Logo"
+            style={{ width: 65, height: 65, borderRadius: '10px' }}
+          />
         </div>
         <div>
-          <h1 style={{ fontFamily: 'none', color: '#ffff' }}>
-            Hệ thống quản trị bệnh viện Khoái Châu
-          </h1>
+          <h1 style={{ fontFamily: 'none', color: '#ffff' }}>Hệ thống quản trị bệnh viện Khoái Châu</h1>
         </div>
-        <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['2']} style={{ flex: 1, backgroundColor: '#4a90e2' }} />
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          defaultSelectedKeys={['2']}
+          style={{ flex: 1, backgroundColor: '#4a90e2' }}
+        />
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Popover
-            content={notificationContent}
-            title="Thông báo"
-            trigger="click"
-            placement="bottomRight"
-          >
+          <Popover content={notificationContent} title="Thông báo" trigger="click" placement="bottomRight">
             <Badge
-              count={notificationCount} // Sử dụng notificationCount thay vì appointmentCount
+              count={notificationCount}
               offset={[10, 0]}
               showZero={true}
               style={{ backgroundColor: '#ff4d4f', right: 20 }}
             >
-              <BellOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }} />
+              <BellOutlined
+                style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }}
+              />
             </Badge>
           </Popover>
           <MailOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px' }} />
@@ -514,7 +544,9 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
             trigger="click"
             placement="bottomRight"
           >
-            <UserOutlined style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }} />
+            <UserOutlined
+              style={{ fontSize: '20px', color: '#ffff', marginRight: '16px', cursor: 'pointer' }}
+            />
           </Popover>
           <Button
             type="primary"
@@ -525,10 +557,17 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
           </Button>
         </div>
       </Header>
-      <Content style={{ padding: '0 48px', maxHeight: 1660, border: 20, backgroundColor: '#31304d' }}>
+      <Content style={{ padding: '0 48px', maxHeight: 2207, border: 20, backgroundColor: '#31304d' }}>
         <Breadcrumb style={{ margin: '16px 0', color: '#fff' }} />
         <Layout
-          style={{ padding: '24px 0', background: colorBgContainer, borderRadius: borderRadiusLG, marginLeft: -28, marginRight: -20, marginTop: -20 }}
+          style={{
+            padding: '24px 0',
+            background: colorBgContainer,
+            borderRadius: borderRadiusLG,
+            marginLeft: -28,
+            marginRight: -20,
+            marginTop: -20,
+          }}
         >
           <Sider style={{ background: colorBgContainer }} width={200}>
             <Menu
@@ -539,9 +578,7 @@ const Admin = ({ children, onLogout }: { children: React.ReactNode, onLogout: ()
               items={filteredMenuItems}
             />
           </Sider>
-          <Content style={{ padding: '0 24px', minHeight: 600 }}>
-            {children}
-          </Content>
+          <Content style={{ padding: '0 24px', minHeight: 600 }}>{children}</Content>
         </Layout>
         <Footer style={{ textAlign: 'center', backgroundColor: '#31304d', color: '#ffffff' }}>
           © 2024 Hệ thống quản trị bệnh viện Khoái Châu

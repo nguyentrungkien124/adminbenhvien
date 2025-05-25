@@ -150,12 +150,33 @@ const IndexNoitru: React.FC = () => {
   const [dienBienForm] = Form.useForm();
   const [chiDinhThuocForm] = Form.useForm();
   const [chiPhiForm] = Form.useForm();
-
+ const [khoaName, setKhoaName] = useState<string>('Không có khoa');
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
-  const khoaName = user.khoa_name || 'Tim mạch';
+  // const khoaName = user.khoa_name || 'Tim mạch';
   const bacSiId = user.bac_si_id;
 
+  useEffect(() => {
+    const fetchKhoaName = async () => {
+      if (khoaId) {
+        try {
+          const response = await axios.get(`http://localhost:9999/api/khoa/getkhoabyid/${khoaId}`);
+          const khoaData = response.data; // Giả sử API trả về dạng { id: number, ten: string }
+          console.log('Khoa Data:', khoaData);
+          setKhoaName(khoaData[0]?.ten || 'Không có khoa');
+        } catch (error) {
+          console.error('Error fetching khoa name:', error);
+          setKhoaName('Không có khoa');
+          message.error('Không thể lấy thông tin khoa. Vui lòng thử lại sau.');
+        }
+      } else {
+        setKhoaName('Không có khoa');
+      }
+    };
+
+    fetchKhoaName();
+  }, [khoaId]);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {

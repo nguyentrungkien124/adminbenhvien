@@ -51,6 +51,7 @@ import Banglichlamviecbybs from './pages/ok/datlich';
 import Lichhenkham from './pages/lichhenkham/lichhenkham';
 import Khamlamsan from './pages/Khamlamsan/Khamlamsan';
 import Xacnhanthanhtoanbyletan from './pages/Letan/xacnhanthanhbyletan';
+import StatisticsPage from './pages/thongke1/thongke';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -128,6 +129,7 @@ function App() {
                         <Route path="/Lichhenkham" element={<Lichhenkham />} />
                         <Route path="/Khamlamsan" element={<Khamlamsan />} />
                          <Route path="/Xacnhanthanhtoanbyletan" element={<Xacnhanthanhtoanbyletan />} />
+                         <Route path="/StatisticsPage" element={<StatisticsPage />} />
                         {/* Điều hướng mặc định đến trang chính nếu đã đăng nhập */}
                     </Routes>
                 </Admin>

@@ -25,6 +25,7 @@ import axios, { AxiosError } from 'axios';
 import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 const { Step } = Steps;
 const { Option } = Select;
 const { TextArea } = Input;
@@ -183,7 +184,6 @@ const Letan: React.FC = () => {
         if (appointmentResponse.data.appointment) {
           const appt = appointmentResponse.data.appointment;
           const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
-          // Chấp nhận status: 0 (chưa khám) hoặc 1 (đã xác nhận nhưng chưa khám, ket_qua_kham: null)
           const isPending = appt.status === 0 || (appt.status === 1 && !appt.ket_qua_kham);
 
           setFormData((prev) => ({ ...prev, source: appt.source }));
@@ -250,7 +250,6 @@ const Letan: React.FC = () => {
       if (appointmentResponse.data.appointment) {
         const appt = appointmentResponse.data.appointment;
         const isToday = dayjs(appt.ngay_kham).isSame(dayjs(), 'day');
-        // Chấp nhận status: 0 (chưa khám) hoặc 1 (đã xác nhận nhưng chưa khám, ket_qua_kham: null)
         const isPending = appt.status === 0 || (appt.status === 1 && !appt.ket_qua_kham);
 
         setFormData((prev) => ({ ...prev, source: appt.source }));
@@ -294,15 +293,14 @@ const Letan: React.FC = () => {
       console.log('Create user response:', response.data);
 
       if (response.data) {
-        console.log('Response data type:', typeof response.data);
-        console.log('Response data keys:', Object.keys(response.data));
-
         if (typeof response.data === 'string') {
           try {
             const parsedData = JSON.parse(response.data);
-            console.log('Parsed response data:', parsedData);
             if (parsedData.id) {
               setCreatedUserId(parsedData.id);
+              setExistingUser({ id: parsedData.id, ...userData });
+              setFormData((prev) => ({ ...prev, ...userData, id: parsedData.id }));
+              form.setFieldsValue({ ...userData, id: parsedData.id });
               return parsedData.id;
             }
           } catch (e) {
@@ -312,6 +310,9 @@ const Letan: React.FC = () => {
 
         if (response.data.id) {
           setCreatedUserId(response.data.id);
+          setExistingUser({ id: response.data.id, ...userData });
+          setFormData((prev) => ({ ...prev, ...userData, id: response.data.id }));
+          form.setFieldsValue({ ...userData, id: response.data.id });
           return response.data.id;
         }
       }
@@ -371,81 +372,225 @@ const Letan: React.FC = () => {
     }
   };
 
-  const generatePDF = () => {
-    const requiredFields = [
-      { key: 'ho_ten', label: 'Họ tên' },
-      { key: 'so_dien_thoai', label: 'Số điện thoại' },
-      { key: 'khoa_id', label: 'Khoa tiếp nhận' },
-      { key: 'trieu_chung', label: 'Triệu chứng' },
-    ];
+const generatePDF = () => {
+  const requiredFields = [
+    { key: 'ho_ten', label: 'Họ tên' },
+    { key: 'so_dien_thoai', label: 'Số điện thoại' },
+    { key: 'khoa_id', label: 'Khoa tiếp nhận' },
+    { key: 'trieu_chung', label: 'Triệu chứng' },
+  ];
 
-    const missingFields = requiredFields.filter(field => !formData[field.key]);
-    if (!soThuTu || missingFields.length > 0) {
-      const missingLabels = missingFields.map(field => field.label).join(', ');
-      message.error(`Không thể tạo PDF - Thiếu thông tin: ${missingLabels}`);
+  const missingFields = requiredFields.filter((field) => !formData[field.key]);
+  if (!soThuTu || missingFields.length > 0) {
+    const missingLabels = missingFields.map((field) => field.label).join(', ');
+    message.error(`Không thể tạo PDF - Thiếu thông tin: ${missingLabels}`);
+    return;
+  }
+
+  try {
+    setPdfGenerating(true);
+
+    // Tạo HTML template với CSS
+    const htmlTemplate = `
+      <div style="
+        font-family: 'Arial', 'Times New Roman', sans-serif;
+        width: 400px;
+        padding: 20px;
+        background: white;
+        font-size: 14px;
+        line-height: 1.5;
+      ">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="margin: 0; font-weight: bold; font-size: 16px;">
+            PHIẾU SỐ THỨ TỰ KHÁM BỆNH
+          </h2>
+          <h3 style="margin: 5px 0; font-weight: normal; font-size: 12px;">
+            BỆNH VIỆN KHOÁI CHÂU
+          </h3>
+          <div style="margin: 5px 0;">--------------------------------</div>
+          <div style="font-size: 20px; font-weight: bold; margin: 15px 0;">
+            STT: ${soThuTu}
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <div style="margin-bottom: 8px;">
+            <strong>Họ tên:</strong> ${formData.ho_ten || 'N/A'}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Số CMND/CCCD:</strong> ${formData.CMND || 'N/A'}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Khoa tiếp nhận:</strong> ${departments.find((d) => d.id === formData.khoa_id)?.name || 'Chưa xác định'}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Triệu chứng:</strong> ${formData.trieu_chung || 'Không có'}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Ngày khám:</strong> ${dayjs().format('DD/MM/YYYY HH:mm')}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Hình thức:</strong> ${formData.source === 'online' ? 'Trực tuyến' : 'Trực tiếp'}
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 10px; margin-top: 30px;">
+          <div style="margin-bottom: 5px;">
+            Vui lòng giữ phiếu này và đến đúng giờ khám.
+          </div>
+          <div>
+            Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Tạo element tạm để render HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlTemplate;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    document.body.appendChild(tempDiv);
+
+    // Kiểm tra element tồn tại trước khi sử dụng html2canvas
+    const targetElement = tempDiv.firstElementChild as HTMLElement;
+    if (!targetElement) {
+      message.error('Không thể tạo element để render PDF');
+      document.body.removeChild(tempDiv);
       return;
     }
 
-    try {
-      setPdfGenerating(true);
-      
+    // Sử dụng html2canvas để convert HTML thành image
+    html2canvas(targetElement, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff'
+    }).then((canvas: HTMLCanvasElement) => {
+      // Tạo PDF từ canvas
+      const imgData = canvas.toDataURL('image/png');
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a5',
       });
-      
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PHIẾU SỐ THỨ TỰ KHÁM BỆNH', 105, 20, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text('BỆNH VIỆN XYZ', 105, 30, { align: 'center' });
-      doc.text('----------------------------------------', 105, 35, { align: 'center' });
 
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`SỐ: ${soThuTu}`, 105, 50, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      
-      const patientInfo = [
-        { label: 'Họ tên:', value: formData.ho_ten || 'N/A' },
-        { label: 'Số điện thoại:', value: formData.so_dien_thoai || 'N/A' },
-        { label: 'Khoa tiếp nhận:', value: departments.find((d) => d.id === formData.khoa_id)?.name || 'Chưa xác định' },
-        { label: 'Triệu chứng:', value: formData.trieu_chung || 'Không có' },
-        { label: 'Ngày khám:', value: dayjs().format('DD/MM/YYYY HH:mm') },
-        { label: 'Hình thức:', value: formData.source === 'online' ? 'Trực tuyến' : 'Trực tiếp' },
-      ];
+      const imgWidth = 148; // A5 width - margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      let yPos = 65;
-      patientInfo.forEach(item => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${item.label}`, 20, yPos);
-        doc.setFont('helvetica', 'normal');
-        const valueText = item.value.length > 40 ? item.value.substring(0, 40) + '...' : item.value;
-        doc.text(valueText, 60, yPos);
-        yPos += 10;
-      });
+      doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
 
-      doc.setFontSize(10);
-      doc.text('Vui lòng giữ phiếu này và đến đúng giờ khám.', 105, 130, { align: 'center' });
-      doc.text('Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!', 105, 140, { align: 'center' });
-
-      const filename = `SoThuTu_${soThuTu}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
-      
+      const filename = `PhieuSoThuTu_${soThuTu}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
       doc.save(filename);
+
+      // Cleanup
+      document.body.removeChild(tempDiv);
       
       message.success('Tải phiếu số thứ tự thành công!');
-    } catch (error) {
+    }).catch((error: Error) => {
       console.error('Lỗi khi tạo PDF:', error);
       message.error('Không thể tạo PDF. Vui lòng thử lại.');
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
+      document.body.removeChild(tempDiv);
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
+
+// Phiên bản đơn giản hơn chỉ dùng jsPDF với Unicode encoding
+const generatePDFSimple = () => {
+  const requiredFields = [
+    { key: 'ho_ten', label: 'Họ tên' },
+    { key: 'so_dien_thoai', label: 'Số điện thoại' },
+    { key: 'khoa_id', label: 'Khoa tiếp nhận' },
+    { key: 'trieu_chung', label: 'Triệu chứng' },
+  ];
+
+  const missingFields = requiredFields.filter((field) => !formData[field.key]);
+  if (!soThuTu || missingFields.length > 0) {
+    const missingLabels = missingFields.map((field) => field.label).join(', ');
+    message.error(`Không thể tạo PDF - Thiếu thông tin: ${missingLabels}`);
+    return;
+  }
+
+  try {
+    setPdfGenerating(true);
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a5',
+    });
+
+    // Sử dụng font hỗ trợ Unicode
+    doc.setFont('helvetica');
+
+    // Tiêu đề
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PHIEU SO THU TU KHAM BENH', 105, 20, { align: 'center' });
+
+    // Thông tin bệnh viện  
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('BENH VIEN KHOAI CHAU', 105, 30, { align: 'center' });
+    doc.text('--------------------------------', 105, 35, { align: 'center' });
+
+    // Số thứ tự
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`STT: ${soThuTu}`, 105, 50, { align: 'center' });
+
+    // Thông tin chi tiết
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    let yPos = 65;
+
+    const patientInfo = [
+      { label: 'Ho ten:', value: formData.ho_ten || 'N/A' },
+      { label: 'So CMND/CCCD:', value: formData.CMND || 'N/A' },
+      {
+        label: 'Khoa tiep nhan:',
+        value: departments.find((d) => d.id === formData.khoa_id)?.name || 'Chua xac dinh',
+      },
+      { label: 'Trieu chung:', value: formData.trieu_chung || 'Khong co' },
+      { label: 'Ngay kham:', value: dayjs().format('DD/MM/YYYY HH:mm') },
+      { label: 'Hinh thuc:', value: formData.source === 'online' ? 'Truc tuyen' : 'Truc tiep' },
+    ];
+
+    patientInfo.forEach((item) => {
+      doc.setFont('helvetica', 'bold');
+      doc.text(item.label, 20, yPos);
+      doc.setFont('helvetica', 'normal');
+      
+      // Chia text nếu quá dài
+      const valueText = item.value.length > 35 ? item.value.substring(0, 35) + '...' : item.value;
+      doc.text(valueText, 60, yPos);
+      yPos += 10;
+    });
+
+    // Lưu ý
+    doc.setFontSize(10);
+    doc.text('Vui long giu phieu nay va den dung gio kham.', 105, 130, { align: 'center' });
+    doc.text('Cam on ban da su dung dich vu!', 105, 140, { align: 'center' });
+
+    const filename = `PhieuSoThuTu_${soThuTu}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+    doc.save(filename);
+
+    message.success('Tải phiếu số thứ tự thành công!');
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
+
 
   const handleConfirmAppointment = async () => {
     if (!appointment || !createdUserId) return;
@@ -471,6 +616,19 @@ const Letan: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setIsSoThuTuModalVisible(false);
+    // Reset form và state sau khi đóng modal
+    form.resetFields();
+    setFormData({});
+    setCreatedUserId(null);
+    setExistingUser(null);
+    setAppointment(null);
+    setSearchQuery('');
+    setCurrentStep(0);
+    setSoThuTu(null);
   };
 
   const nextStep = () => {
@@ -535,30 +693,37 @@ const Letan: React.FC = () => {
         }
       }
 
+      const khoaId = finalValues.khoa_id || (appointment ? appointment.khoa_id.toString() : '20');
+      const trieuChung = finalValues.trieu_chung || (appointment ? appointment.trieu_chung : '');
+
       const patientData = {
         khach_hang_id: userId,
-        khoa_id: parseInt(finalValues.khoa_id) || 20,
+        khoa_id: parseInt(khoaId),
         bac_si_id: parseInt(finalValues.bac_si_id || ''),
-        trieu_chung: finalValues.trieu_chung,
+        trieu_chung: trieuChung,
         tien_su_benh: finalValues.tien_su_benh || '',
         bao_hiem_y_te: finalValues.bao_hiem_y_te,
+        source: appointment ? 'online' : 'tructiep',
       };
       console.log('Patient data to send:', patientData);
 
       await tiepNhanBenhNhan(patientData);
 
-      const hinh_thuc = (appointment && isConfirming) ? 'tructuyen' : 'tructiep';
-      const so_thu_tu = await generateSoThuTu(hinh_thuc, userId!, parseInt(finalValues.khoa_id), null);
+      const hinh_thuc = appointment ? 'tructuyen' : 'tructiep';
+      const so_thu_tu = await generateSoThuTu(hinh_thuc, userId!, parseInt(khoaId), null);
       setSoThuTu(so_thu_tu);
-      setIsSoThuTuModalVisible(true);
 
-      form.resetFields();
-      setFormData({});
-      setCreatedUserId(null);
-      setExistingUser(null);
-      setAppointment(null);
-      setSearchQuery('');
-      setCurrentStep(0);
+      // Cập nhật formData với thông tin mới nhất trước khi mở modal
+      setFormData((prev) => ({
+        ...prev,
+        khoa_id: khoaId,
+        trieu_chung: trieuChung,
+        source: hinh_thuc === 'tructuyen' ? 'online' : 'tructiep',
+      }));
+      form.setFieldsValue({ khoa_id: khoaId, trieu_chung: trieuChung });
+
+      // Mở modal
+      setIsSoThuTuModalVisible(true);
     } catch (error) {
       console.error('Error in onFinish:', error);
       if (error instanceof Error) {
@@ -674,7 +839,7 @@ const Letan: React.FC = () => {
                       <Input placeholder="Nhập họ và tên" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-                  <Col span={15} style={{ marginLeft: '40px'}}>
+                  <Col span={15} style={{ marginLeft: '40px' }}>
                     <Form.Item
                       name="so_dien_thoai"
                       label="Số điện thoại"
@@ -702,7 +867,7 @@ const Letan: React.FC = () => {
                       </Radio.Group>
                     </Form.Item>
                   </Col>
-                  <Col span={8} style={{ marginRight: '40px'}}>
+                  <Col span={8} style={{ marginRight: '40px' }}>
                     <Form.Item
                       name="ngay_sinh"
                       label="Ngày sinh"
@@ -717,7 +882,7 @@ const Letan: React.FC = () => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={8} >
+                  <Col span={8}>
                     <Form.Item name="CMND" label="Số CMND/CCCD">
                       <Input placeholder="Nhập số CMND/CCCD" disabled={!!existingUser} />
                     </Form.Item>
@@ -725,17 +890,17 @@ const Letan: React.FC = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={7} style={{ marginRight: '40px'}}>
-                    <Form.Item name="dan_toc" label="Dân tộc" >
+                  <Col span={7} style={{ marginRight: '40px' }}>
+                    <Form.Item name="dan_toc" label="Dân tộc">
                       <Input placeholder="Nhập dân tộc" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
                   <Col span={8}>
-                    <Form.Item name="nghe_nghiep" label="Nghề nghiệp" style={{ marginRight: '40px'}}> 
+                    <Form.Item name="nghe_nghiep" label="Nghề nghiệp" style={{ marginRight: '40px' }}>
                       <Input placeholder="Nhập nghề nghiệp" disabled={!!existingUser} />
                     </Form.Item>
                   </Col>
-                  <Col span={8} >
+                  <Col span={8}>
                     <Form.Item
                       name="email"
                       label="Email"
@@ -747,7 +912,7 @@ const Letan: React.FC = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={11} style={{ marginRight: '40px'}}>
+                  <Col span={11} style={{ marginRight: '40px' }}>
                     <Form.Item
                       name="dia_chi"
                       label="Địa chỉ"
@@ -888,8 +1053,8 @@ const Letan: React.FC = () => {
           <Modal
             title="Số thứ tự khám bệnh"
             open={isSoThuTuModalVisible}
-            onOk={() => setIsSoThuTuModalVisible(false)}
-            onCancel={() => setIsSoThuTuModalVisible(false)}
+            onOk={handleCloseModal}
+            onCancel={handleCloseModal}
             footer={[
               <Button
                 key="download"
@@ -900,7 +1065,7 @@ const Letan: React.FC = () => {
               >
                 Tải PDF
               </Button>,
-              <Button key="close" onClick={() => setIsSoThuTuModalVisible(false)}>
+              <Button key="close" onClick={handleCloseModal}>
                 Đóng
               </Button>,
             ]}
