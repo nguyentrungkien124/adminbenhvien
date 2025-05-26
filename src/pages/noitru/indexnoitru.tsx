@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Table,
@@ -38,16 +37,17 @@ import {
   SwapOutlined,
   MonitorOutlined,
   DollarOutlined,
+  DeleteOutlined,
+  PlusCircleOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
-import { Dropdown, Menu } from 'antd'; // Thêm Dropdown và Menu từ Ant Design
-import { DownOutlined } from '@ant-design/icons'; // Thêm icon cho Dropdown
+import { Dropdown, Menu } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
 
-// ... (Interfaces remain unchanged: Inpatient, Room, Bed, InpatientStats, DienBien, ChiDinhThuoc, Kho, ChiPhi, TongChiPhi)
 interface Inpatient {
   admission_id: number;
   appointment_id: number;
@@ -61,6 +61,7 @@ interface Inpatient {
   room_name: string;
   bed_code: string;
   ngay_nhap_vien: string;
+  da_thanh_toan: number;
 }
 
 interface Room {
@@ -123,6 +124,7 @@ interface TongChiPhi {
   gia_kham: number;
   trang_thai_thanh_toan: string;
 }
+
 const IndexNoitru: React.FC = () => {
   const [inpatients, setInpatients] = useState<Inpatient[]>([]);
   const [filteredInpatients, setFilteredInpatients] = useState<Inpatient[]>([]);
@@ -150,10 +152,9 @@ const IndexNoitru: React.FC = () => {
   const [dienBienForm] = Form.useForm();
   const [chiDinhThuocForm] = Form.useForm();
   const [chiPhiForm] = Form.useForm();
- const [khoaName, setKhoaName] = useState<string>('Không có khoa');
+  const [khoaName, setKhoaName] = useState<string>('Không có khoa');
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
-  // const khoaName = user.khoa_name || 'Tim mạch';
   const bacSiId = user.bac_si_id;
 
   useEffect(() => {
@@ -161,7 +162,7 @@ const IndexNoitru: React.FC = () => {
       if (khoaId) {
         try {
           const response = await axios.get(`http://localhost:9999/api/khoa/getkhoabyid/${khoaId}`);
-          const khoaData = response.data; // Giả sử API trả về dạng { id: number, ten: string }
+          const khoaData = response.data;
           console.log('Khoa Data:', khoaData);
           setKhoaName(khoaData[0]?.ten || 'Không có khoa');
         } catch (error) {
@@ -176,7 +177,7 @@ const IndexNoitru: React.FC = () => {
 
     fetchKhoaName();
   }, [khoaId]);
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -322,7 +323,6 @@ const IndexNoitru: React.FC = () => {
       setLoading(true);
       const [dienBienResponse, chiDinhThuocResponse, chiPhiResponse, tongChiPhiResponse] = await Promise.all([
         axios.get(`http://localhost:9999/api/noitru/dien-bien/${inpatient.admission_id}`),
-        // axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}`),
         axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}?null`),
         axios.get(`http://localhost:9999/api/noitru/chi-phi/${inpatient.admission_id}`),
         axios.get(`http://localhost:9999/api/noitru/tong-chi-phi/${inpatient.admission_id}`),
@@ -405,22 +405,22 @@ const IndexNoitru: React.FC = () => {
 
     try {
       setLoading(true);
-      const data = {
+      const prescriptions = values.prescriptions.map((prescription: any) => ({
         admission_id: selectedAdmissionId,
-        kho_id: values.kho_id,
-        so_luong: Number(values.so_luong),
-        lieu_luong: values.lieu_luong,
-        tan_suat: values.tan_suat,
+        kho_id: prescription.kho_id,
+        so_luong: Number(prescription.so_luong),
+        lieu_luong: prescription.lieu_luong,
+        tan_suat: prescription.tan_suat,
         nguoi_chi_dinh_id: bacSiId,
-      };
-      console.log('Calling API /api/noitru/chi-dinh-thuoc with data:', data);
-      const response = await axios.post('http://localhost:9999/api/noitru/chi-dinh-thuoc', data);
+      }));
+      console.log('Calling API /api/noitru/chi-dinh-thuoc with data:', { prescriptions });
+      const response = await axios.post('http://localhost:9999/api/noitru/chi-dinh-thuoc', { prescriptions });
       message.success(response.data.message || 'Chỉ định thuốc thành công');
       setIsChiDinhThuocModalVisible(false);
       chiDinhThuocForm.resetFields();
 
       if (selectedInpatient && selectedInpatient.admission_id === selectedAdmissionId) {
-        const chiDinhThuocResponse = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${selectedAdmissionId}`);
+        const chiDinhThuocResponse = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${selectedAdmissionId}?null`);
         setChiDinhThuocList(chiDinhThuocResponse.data.data || []);
       }
     } catch (error: any) {
@@ -489,6 +489,7 @@ const IndexNoitru: React.FC = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
+
 const columns = [
   {
     title: 'Mã nhập viện',
@@ -561,9 +562,20 @@ const columns = [
     render: (date: string) => formatDate(date),
   },
   {
+    title: 'Trạng thái thanh toán', // Cột mới
+    dataIndex: 'da_thanh_toan',
+    key: 'da_thanh_toan',
+    width: 150,
+    render: (status: number) => (
+      <Tag color={status === 1 ? 'green' : 'red'}>
+        {status === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'}
+      </Tag>
+    ),
+  },
+  {
     title: 'Hành động',
     key: 'action',
-    width: 250, // Giảm width vì đã thu gọn bằng Dropdown
+    width: 250,
     render: (_: any, record: Inpatient) => (
       <Space wrap size="small">
         <Button
@@ -943,67 +955,67 @@ const columns = [
                 />
               )}
             </TabPane>
-          <TabPane tab="Chi phí" key="chiPhi">
-          <>
-            <Divider>Chi phí điều trị</Divider>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12} style={{ zIndex: 1 }}>
-                <Statistic
-                  title="Tổng chi phí"
-                  value={tongChiPhi?.tong_tien || 0}
-                  formatter={(value) => formatCurrency(value as number)}
-                  valueStyle={{ color: '#1890ff' }}
-                />
-              </Col>
-              <Col span={12} style={{ zIndex: 1 }}>
-                <Statistic
-                  title="Giá khám"
-                  value={tongChiPhi?.gia_kham || 0}
-                  formatter={(value) => formatCurrency(value as number)}
-                  valueStyle={{ color: '#1890ff' }}
-                />
-              </Col>
-              <Col span={12} style={{ zIndex: 1 }}>
-                <Statistic
-                  title="Bảo hiểm"
-                  value={tongChiPhi?.co_bao_hiem ? 'Có (Giảm 30%)' : 'Không'}
-                  valueStyle={{ color: tongChiPhi?.co_bao_hiem ? '#52c41a' : '#fa8c16' }}
-                />
-              </Col>
-              <Col span={12} style={{ zIndex: 1 }}>
-                <Statistic
-                  title="Trạng thái thanh toán"
-                  value={tongChiPhi?.trang_thai_thanh_toan || 'Chưa thanh toán'}
-                  valueStyle={{ color: tongChiPhi?.trang_thai_thanh_toan === 'Đã thanh toán' ? '#52c41a' : '#fa8c16' }}
-                />
-              </Col>
-            </Row>
-            <Button
-              type="primary"
-              icon={<DollarOutlined />}
-              onClick={() => showAddChiPhiModal(selectedInpatient.admission_id)}
-              style={{ marginBottom: 16 }}
-            >
-              Thêm chi phí
-            </Button>
-            {chiPhiList.length > 0 ? (
-              <Table
-                columns={chiPhiColumns}
-                dataSource={chiPhiList}
-                rowKey="id"
-                pagination={false}
-                bordered
-                size="small"
-              />
-            ) : (
-              <Empty
-                description="Chưa có chi phí nào được ghi nhận"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                style={{ margin: '20px 0' }}
-              />
-            )}
-          </>
-        </TabPane>
+            <TabPane tab="Chi phí" key="chiPhi">
+              <>
+                <Divider>Chi phí điều trị</Divider>
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                  <Col span={12} style={{ zIndex: 1 }}>
+                    <Statistic
+                      title="Tổng chi phí"
+                      value={tongChiPhi?.tong_tien || 0}
+                      formatter={(value) => formatCurrency(value as number)}
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                  </Col>
+                  <Col span={12} style={{ zIndex: 1 }}>
+                    <Statistic
+                      title="Giá khám"
+                      value={tongChiPhi?.gia_kham || 0}
+                      formatter={(value) => formatCurrency(value as number)}
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                  </Col>
+                  <Col span={12} style={{ zIndex: 1 }}>
+                    <Statistic
+                      title="Bảo hiểm"
+                      value={tongChiPhi?.co_bao_hiem ? 'Có (Giảm 30%)' : 'Không'}
+                      valueStyle={{ color: tongChiPhi?.co_bao_hiem ? '#52c41a' : '#fa8c16' }}
+                    />
+                  </Col>
+                  <Col span={12} style={{ zIndex: 1 }}>
+                    <Statistic
+                      title="Trạng thái thanh toán"
+                      value={tongChiPhi?.trang_thai_thanh_toan || 'Chưa thanh toán'}
+                      valueStyle={{ color: tongChiPhi?.trang_thai_thanh_toan === 'Đã thanh toán' ? '#52c41a' : '#fa8c16' }}
+                    />
+                  </Col>
+                </Row>
+                <Button
+                  type="primary"
+                  icon={<DollarOutlined />}
+                  onClick={() => showAddChiPhiModal(selectedInpatient.admission_id)}
+                  style={{ marginBottom: 16 }}
+                >
+                  Thêm chi phí
+                </Button>
+                {chiPhiList.length > 0 ? (
+                  <Table
+                    columns={chiPhiColumns}
+                    dataSource={chiPhiList}
+                    rowKey="id"
+                    pagination={false}
+                    bordered
+                    size="small"
+                  />
+                ) : (
+                  <Empty
+                    description="Chưa có chi phí nào được ghi nhận"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    style={{ margin: '20px 0' }}
+                  />
+                )}
+              </>
+            </TabPane>
           </Tabs>
         )}
       </Modal>
@@ -1082,6 +1094,7 @@ const columns = [
       <Modal
         title="Chỉ định thuốc"
         open={isChiDinhThuocModalVisible}
+        width="40%"
         onOk={async () => {
           console.log('Modal chiDinhThuoc onOk triggered');
           try {
@@ -1108,52 +1121,99 @@ const columns = [
             handleAddChiDinhThuoc(values);
           }}
           layout="vertical"
-          initialValues={{ kho_id: null, so_luong: null, lieu_luong: '', tan_suat: '' }}
         >
-          <Form.Item
-            name="kho_id"
-            label="Chọn thuốc"
-            rules={[{ required: true, message: 'Vui lòng chọn thuốc' }]}
-          >
-            <Select placeholder="Chọn thuốc" size="large" disabled={!khoList.length}>
-              {Array.isArray(khoList) && khoList.length > 0 ? (
-                khoList.map((thuoc) => (
-                  <Option key={thuoc.kho_id} value={thuoc.kho_id}>
-                    {thuoc.ten_san_pham} ({thuoc.don_vi_tinh})
-                  </Option>
-                ))
-              ) : (
-                <Option disabled value={null}>
-                  Không có thuốc khả dụng
-                </Option>
-              )}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="so_luong"
-            label="Số lượng"
-            rules={[
-              { required: true, message: 'Vui lòng nhập số lượng' },
-              { type: 'number', min: 1, message: 'Số lượng phải lớn hơn 0' },
-            ]}
-            normalize={(value) => (value ? Number(value) : null)}
-          >
-            <Input type="number" placeholder="VD: 10" size="large" />
-          </Form.Item>
-          <Form.Item
-            name="lieu_luong"
-            label="Liều lượng"
-            rules={[{ required: true, message: 'Vui lòng nhập liều lượng' }]}
-          >
-            <Input placeholder="VD: 2 viên/ngày" size="large" />
-          </Form.Item>
-          <Form.Item
-            name="tan_suat"
-            label="Tần suất"
-            rules={[{ required: true, message: 'Vui lòng nhập tần suất' }]}
-          >
-            <Input placeholder="VD: 2 lần/ngày" size="large" />
-          </Form.Item>
+          <Form.List name="prescriptions">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map((field) => (
+                  <div key={field.key} style={{ marginBottom: 24, padding: '16px', border: '1px solid #f0f0f0', borderRadius: '8px' }}>
+                    <Row gutter={[24, 16]} align="middle">
+                      <Col span={6}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'kho_id']}
+                          fieldKey={[field.fieldKey || 0, 'kho_id']}
+                          label="Chọn thuốc"
+                          rules={[{ required: true, message: 'Vui lòng chọn thuốc!' }]}
+                          style={{ marginBottom: 0, marginRight: '16px' }}
+                        >
+                          <Select placeholder="Chọn thuốc từ kho" size="large" disabled={!khoList.length}>
+                            {Array.isArray(khoList) && khoList.length > 0 ? (
+                              khoList.map((thuoc) => (
+                                <Option key={thuoc.kho_id} value={thuoc.kho_id}>
+                                  {thuoc.ten_san_pham} ({thuoc.don_vi_tinh})
+                                </Option>
+                              ))
+                            ) : (
+                              <Option disabled value={null}>
+                                Không có thuốc khả dụng
+                              </Option>
+                            )}
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                      <Col span={4}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'so_luong']}
+                          fieldKey={[field.fieldKey || 0, 'so_luong']}
+                          label="Số lượng"
+                          rules={[
+                            { required: true, message: 'Vui lòng nhập số lượng!' },
+                            { type: 'number', min: 1, message: 'Số lượng phải lớn hơn 0!' },
+                          ]}
+                          normalize={(value) => (value ? Number(value) : value)}
+                          style={{ marginBottom: 0, marginRight: '16px' }}
+                        >
+                          <Input type="number" placeholder="Nhập số lượng" size="large" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={5}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'lieu_luong']}
+                          fieldKey={[field.fieldKey || 0, 'lieu_luong']}
+                          label="Liều lượng"
+                          rules={[{ required: true, message: 'Vui lòng nhập liều lượng!' }]}
+                          style={{ marginBottom: 0, marginRight: '16px' }}
+                        >
+                          <Input placeholder="Nhập liều lượng" size="large" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={5}>
+                        <Form.Item
+                          {...field}
+                          name={[field.name, 'tan_suat']}
+                          fieldKey={[field.fieldKey || 0, 'tan_suat']}
+                          label="Tần suất"
+                          rules={[{ required: true, message: 'Vui lòng nhập tần suất!' }]}
+                          style={{ marginBottom: 0, marginRight: '16px' }}
+                        >
+                          <Input placeholder="Nhập tần suất" size="large" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={4} style={{ textAlign: 'center' }}>
+                        <Button
+                          type="link"
+                          danger
+                          onClick={() => remove(field.name)}
+                          icon={<DeleteOutlined />}
+                          style={{ marginTop: 24 }}
+                        >
+                          Xóa
+                        </Button>
+                      </Col>
+                    </Row>
+                  </div>
+                ))}
+                <Form.Item style={{ width: '100%' }}>
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />} size="large">
+                    Thêm thuốc
+                  </Button>
+                </Form.Item>
+              </>
+            )}
+          </Form.List>
         </Form>
       </Modal>
 

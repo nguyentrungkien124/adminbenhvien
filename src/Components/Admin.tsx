@@ -428,7 +428,7 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
           return ['sub20', 'sub2', 'sub8'].includes(item.key);
         } else {
           // Các mục mặc định khi khoa_id khác 20
-          const baseItems = ['sub2', 'sub5', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub17', 'sub18', 'sub19', 'sub22'];
+          const baseItems = ['sub2', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub18', 'sub19', 'sub22'];
           return baseItems.includes(item.key);
         }
       } else if (role === 'letan') {
