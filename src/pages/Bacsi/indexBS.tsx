@@ -66,32 +66,32 @@ const App: React.FC = () => {
   }, {} as Record<string, string>);
 
   // Tải dữ liệu bác sĩ
-  // Tải dữ liệu bác sĩ
-const loadData = async () => {
-  try {
-    const url =
-      user && user.khoa_id !== null
-        ? `http://localhost:9999/api/bacsi/getall?khoa_id=${user.khoa_id}`
-        : 'http://localhost:9999/api/bacsi/getall';
+  const loadData = async () => {
+    try {
+      const url =
+        user && user.khoa_id !== null
+          ? `http://localhost:9999/api/bacsi/getall?khoa_id=${user.khoa_id}`
+          : 'http://localhost:9999/api/bacsi/getall';
 
-    console.log('Calling API:', url);
+      console.log('Calling API:', url);
 
-    const response = await axios.get<BacSi[]>(url); // Chỉ định kiểu dữ liệu trả về từ API
-    const modifiedData = response.data.map((item: BacSi, index: number) => ({
-      ...item,
-      index: index + 1 + (pagedb - 1) * pageSizedb,
-    }));
+      const response = await axios.get<BacSi[]>(url); // Chỉ định kiểu dữ liệu trả về từ API
+      const modifiedData = response.data.map((item: BacSi, index: number) => ({
+        ...item,
+        index: index + 1 + (pagedb - 1) * pageSizedb,
+      }));
 
-    // Lọc dữ liệu theo tên bác sĩ
-    const filteredData = query
-      ? modifiedData.filter((item: BacSi) => item.ho_ten.toLowerCase().includes(query.toLowerCase()))
-      : modifiedData;
+      // Lọc dữ liệu theo tên bác sĩ
+      const filteredData = query
+        ? modifiedData.filter((item: BacSi) => item.ho_ten.toLowerCase().includes(query.toLowerCase()))
+        : modifiedData;
 
-    setData(filteredData);
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  }
-};
+      setData(filteredData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
   // Tải danh sách khoa
   const loadData1 = async () => {
     try {
@@ -176,10 +176,10 @@ const loadData = async () => {
     setSelectedRowKeys(newSelectedRowKeys);
   };
 
-  const rowSelection = {
+  const rowSelection = user?.role !== 'bacsi' ? {
     selectedRowKeys,
     onChange: onSelectChange,
-  };
+  } : undefined; // Ẩn rowSelection nếu role là bacsi
 
   // Tải dữ liệu khi user, query, hoặc các tham số thay đổi
   useEffect(() => {
@@ -198,22 +198,28 @@ const loadData = async () => {
         </h2>
 
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            style={{ marginRight: '10px' }}
-            onClick={() => navigate('/createBS')}
-          >
-            Thêm bác sĩ
-          </Button>
+          {/* Ẩn nút "Thêm bác sĩ" nếu role là bacsi */}
+          {user?.role !== 'bacsi' && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              style={{ marginRight: '10px' }}
+              onClick={() => navigate('/createBS')}
+            >
+              Thêm bác sĩ
+            </Button>
+          )}
 
-          <Button
-            onClick={handleDeleteMultiple}
-            disabled={selectedRowKeys.length === 0}
-            style={{ backgroundColor: selectedRowKeys.length > 0 ? '#ff0003' : undefined, marginRight: 10 }}
-          >
-            Xóa nhiều
-          </Button>
+          {/* Ẩn nút "Xóa nhiều" nếu role là bacsi */}
+          {user?.role !== 'bacsi' && (
+            <Button
+              onClick={handleDeleteMultiple}
+              disabled={selectedRowKeys.length === 0}
+              style={{ backgroundColor: selectedRowKeys.length > 0 ? '#ff0003' : undefined, marginRight: 10 }}
+            >
+              Xóa nhiều
+            </Button>
+          )}
 
           <Input.Search
             value={query}
@@ -273,20 +279,23 @@ const loadData = async () => {
             <Switch checked={record.khambenh_qua_video} onChange={(checked) => handleToggle(checked, record.id)} />
           )}
         />
-        <Column
-          title="Action"
-          key="action"
-          render={(_, record: BacSi) => (
-            <Space size="middle">
-              <Link style={{ fontSize: '25px' }} to={`/editBS/${record.id}`}>
-                <EditOutlined />
-              </Link>
-              <a style={{ fontSize: '25px', color: 'red' }} onClick={() => handleDelete(record)}>
-                <DeleteOutlined />
-              </a>
-            </Space>
-          )}
-        />
+        {/* Ẩn cột "Action" nếu role là bacsi */}
+        {user?.role !== 'bacsi' && (
+          <Column
+            title="Action"
+            key="action"
+            render={(_, record: BacSi) => (
+              <Space size="middle">
+                <Link style={{ fontSize: '25px' }} to={`/editBS/${record.id}`}>
+                  <EditOutlined />
+                </Link>
+                <a style={{ fontSize: '25px', color: 'red' }} onClick={() => handleDelete(record)}>
+                  <DeleteOutlined />
+                </a>
+              </Space>
+            )}
+          />
+        )}
       </Table>
     </>
   );

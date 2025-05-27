@@ -6,11 +6,22 @@ import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { Column } = Table;
 
+// Interface cho user
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  khoa_id: number;
+  role: string;
+  bac_si_id: number;
+  function_keys: string[];
+}
+
 const IndexTTB: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
   const [nhomtrangthietbi, setNTTB] = useState<any[]>([]);
   const [khoa, setKhoa] = useState<any[]>([]);
-  const [user, setUser] = useState<any>(null); // State để lưu thông tin user từ sessionStorage
+  const [user, setUser] = useState<User | null>(null); // State để lưu thông tin user từ sessionStorage
   const navigate = useNavigate();
 
   // Tạo object ánh xạ tên khoa
@@ -34,7 +45,7 @@ const IndexTTB: React.FC = () => {
       console.log('URL being called:', url); // Debug URL
       console.log('user?.khoa_id:', user?.khoa_id); // Debug khoa_id
       const response = await axios.get(url);
-      const modifiedData = response.data.map((item: any, index: any) => ({
+      const modifiedData = response.data.map((item: any, index: number) => ({
         ...item,
         index: index + 1,
       }));
@@ -111,14 +122,17 @@ const IndexTTB: React.FC = () => {
       <h2 style={{ borderBottom: '2px solid #4a90e2', paddingBottom: '5px', marginBottom: '10px', color: '#4a90e2' }}>
         Danh sách các trang thiết bị
       </h2>
-      <Button
-        type="primary"
-        icon={<PlusOutlined />}
-        style={{ marginBottom: '16px' }}
-        onClick={() => navigate('/createTTB')}
-      >
-        Thêm trang thiết bị
-      </Button>
+      {/* Ẩn nút "Thêm trang thiết bị" nếu role là bacsi */}
+      {user?.role !== 'bacsi' && (
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          style={{ marginBottom: '16px' }}
+          onClick={() => navigate('/createTTB')}
+        >
+          Thêm trang thiết bị
+        </Button>
+      )}
       <Table dataSource={data}>
         <Column title="STT" dataIndex="index" key="index" />
         <Column title="Tên thiết bị" dataIndex="ten_thiet_bi" key="ten_thiet_bi" />
@@ -134,9 +148,9 @@ const IndexTTB: React.FC = () => {
           title="Trạng thái"
           dataIndex="trang_thai"
           key="trang_thai"
-          render={(trang_thai) => (
+          render={(trang_thai) =>
             trang_thai === '1' ? 'Đang sử dụng' : trang_thai === '2' ? 'Ngưng sử dụng' : 'Không xác định'
-          )}
+          }
         />
         <Column
           title="Nhóm"
@@ -148,24 +162,25 @@ const IndexTTB: React.FC = () => {
           title="Ảnh"
           dataIndex="hinh_anh"
           key="hinh_anh"
-          render={(anh: string) => (
-            <img
-              src={anh}
-              alt="Ảnh"
-              style={{ width: 50, height: 'auto' }}
-            />
-          )}
+          render={(anh: string) => <img src={anh} alt="Ảnh" style={{ width: 50, height: 'auto' }} />}
         />
-        <Column
-          title="Action"
-          key="action"
-          render={(_: any, record: any) => (
-            <Space size="middle">
-              <Link style={{ fontSize: '25px' }} to={`/editTTB/${record.id}`}><EditOutlined /></Link>
-              <a style={{ fontSize: '25px' }} onClick={() => handleDelete(record)}><DeleteOutlined /></a>
-            </Space>
-          )}
-        />
+        {/* Ẩn cột "Action" nếu role là bacsi */}
+        {user?.role !== 'bacsi' && (
+          <Column
+            title="Action"
+            key="action"
+            render={(_: any, record: any) => (
+              <Space size="middle">
+                <Link style={{ fontSize: '25px' }} to={`/editTTB/${record.id}`}>
+                  <EditOutlined />
+                </Link>
+                <a style={{ fontSize: '25px' }} onClick={() => handleDelete(record)}>
+                  <DeleteOutlined />
+                </a>
+              </Space>
+            )}
+          />
+        )}
       </Table>
     </div>
   );

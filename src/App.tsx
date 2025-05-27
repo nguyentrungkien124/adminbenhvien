@@ -47,11 +47,12 @@ import Letan from './pages/Letan/letan';
 import IndexGiuong from './pages/giuong/indexgiuong';
 import Quanlykhambenh from './pages/Khamtrunggian/Quanlykhambenh';
 import Lichlamviec from './pages/lichlamviec/lichlamviec';
-import Banglichlamviecbybs from './pages/ok/datlich';
+import Banglichlamviecbybs from './pages/banglichlamviecbybs/datlich';
 import Lichhenkham from './pages/lichhenkham/lichhenkham';
 import Khamlamsan from './pages/Khamlamsan/Khamlamsan';
 import Xacnhanthanhtoanbyletan from './pages/Letan/xacnhanthanhbyletan';
 import StatisticsPage from './pages/thongke1/thongke';
+// import AdminPermission from './Components/AdminPermission';
 
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -130,6 +131,7 @@ function App() {
                         <Route path="/Khamlamsan" element={<Khamlamsan />} />
                          <Route path="/Xacnhanthanhtoanbyletan" element={<Xacnhanthanhtoanbyletan />} />
                          <Route path="/StatisticsPage" element={<StatisticsPage />} />
+                         {/* <Route path="/AdminPermission" element={<AdminPermission />} /> */}
                         {/* Điều hướng mặc định đến trang chính nếu đã đăng nhập */}
                     </Routes>
                 </Admin>

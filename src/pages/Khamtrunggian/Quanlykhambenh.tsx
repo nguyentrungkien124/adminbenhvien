@@ -47,7 +47,8 @@ import {
 import { FormInstance } from 'antd/es/form';
 import axios from 'axios';
 import dayjs from 'dayjs';
-
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -75,8 +76,16 @@ interface Appointment {
   hasPrescription?: boolean;
   so_thu_tu?: string;
   da_thanh_toan?: number;
+  gioi_tinh?: string;
+  ngay_sinh?: string;
+  dia_chi?: string;
 }
-
+interface KhachHang {
+  gioi_tinh?: string;
+  ngay_sinh?: string;
+  dia_chi?: string;
+  // Thêm các trường khác nếu cần, dựa trên cấu trúc dữ liệu từ API
+}
 interface Department {
   id: string;
   name: string;
@@ -126,6 +135,7 @@ const Quanlykhambenh: React.FC = () => {
   const [beds, setBeds] = useState<Bed[]>([]);
   const [khoList, setKhoList] = useState<Kho[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
   const [searchText, setSearchText] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
@@ -250,13 +260,13 @@ const Quanlykhambenh: React.FC = () => {
       const khoData = khoRes.data.data || khoRes.data;
       const fetchedKho = Array.isArray(khoData)
         ? khoData.map((item: any) => ({
-            kho_id: item.kho_id,
-            ten_san_pham: item.ten_san_pham,
-            don_vi_tinh: item.don_vi_tinh || 'Không có đơn vị tính',
-          }))
+          kho_id: item.kho_id,
+          ten_san_pham: item.ten_san_pham,
+          don_vi_tinh: item.don_vi_tinh || 'Không có đơn vị tính',
+        }))
         : khoData
-        ? [{ kho_id: khoData.kho_id, ten_san_pham: khoData.ten_san_pham, don_vi_tinh: khoData.don_vi_tinh || 'Không có đơn vị tính' }]
-        : [];
+          ? [{ kho_id: khoData.kho_id, ten_san_pham: khoData.ten_san_pham, don_vi_tinh: khoData.don_vi_tinh || 'Không có đơn vị tính' }]
+          : [];
       setKhoList(fetchedKho);
 
       if (filteredData.length === 0) {
@@ -580,41 +590,89 @@ const Quanlykhambenh: React.FC = () => {
     setIsChiDinhThuocModalVisible(true);
   };
 
-  const showDonThuocModal = async (appointmentId: number) => {
-    try {
-      setLoading(true);
 
-      const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
-      const data = response.data.data
-        ? Array.isArray(response.data.data)
-          ? response.data.data
-          : [response.data.data]
-        : [];
-      setDonThuocData(data);
+const showDonThuocModal = async (appointmentId: number) => {
+  try {
+    setLoading(true);
+    console.log('Appointments list:', appointments);
+    console.log('Selected appointment ID:', appointmentId);
 
-      const costResponse = await axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`);
-      const { total_cost: totalCostValue, phi_kham: phiKhamValue } = costResponse.data.data || {};
-      setTotalCost(totalCostValue || 0);
-      setPhiKham(phiKhamValue || 0);
-
-      let paidAmount = 0;
-      if (selectedAppointment?.source) {
-        const datLichResponse = await axios.get(`http://localhost:9999/api/noitru/datlich/${selectedAppointment.source}`);
-        paidAmount = datLichResponse.data.data?.gia || 0;
-      } else {
-        console.warn('Source không tồn tại trong selectedAppointment');
-      }
-
-      setIsDonThuocModalVisible(true);
-    } catch (error: any) {
-      console.error('Error fetching don thuoc or total cost:', error);
-      message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
-      setTotalCost(null);
-      setPhiKham(null);
-    } finally {
-      setLoading(false);
+    const appt = appointments.find((a) => a.id === appointmentId) || null;
+    if (!appt) {
+      message.error('Không tìm thấy lịch hẹn với ID: ' + appointmentId);
+      return;
     }
+
+    // Lấy thông tin khách hàng từ API
+    let khachHangData: KhachHang = {};
+    try {
+      const khachHangResponse = await axios.get(`http://localhost:9999/api/user/getthongtinbyId/${appt.khach_hang_id}`);
+      khachHangData = khachHangResponse.data.data || khachHangResponse.data || {};
+      console.log('Khach hang data from /api/user/getthongtinbyId:', khachHangData);
+    } catch (error) {
+      console.error('Error fetching khach hang data:', error);
+      message.warning('Không thể lấy thông tin khách hàng. Một số thông tin có thể không hiển thị.');
+    }
+
+    // Kết hợp thông tin từ Appointment và thông tin khách hàng
+    const updatedAppt = {
+      ...appt,
+      // Ưu tiên thông tin từ API khách hàng, fallback về thông tin trong appointment
+      gioi_tinh: khachHangData.gioi_tinh || appt.gioi_tinh || 'N/A',
+      ngay_sinh: khachHangData.ngay_sinh || appt.ngay_sinh || undefined,
+      dia_chi: khachHangData.dia_chi || appt.dia_chi || 'N/A',
+      // Có thể thêm các trường khác từ khachHangData nếu cần
+
+    };
+    console.log('Updated appointment with khach hang data:', updatedAppt);
+    setSelectedAppointment(updatedAppt);
+    setSelectedAppointmentId(appointmentId);
+    console.log('Selected appointment with khach hang data:', updatedAppt);
+
+    // Gọi API lấy đơn thuốc song song với việc lấy chi phí để tối ưu performance
+    const [donThuocResponse, costResponse] = await Promise.all([
+      axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`),
+      axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`)
+    ]);
+
+    // Xử lý dữ liệu đơn thuốc
+    const donThuocData = donThuocResponse.data.data
+      ? Array.isArray(donThuocResponse.data.data)
+        ? donThuocResponse.data.data
+        : [donThuocResponse.data.data]
+      : [];
+    setDonThuocData(donThuocData);
+
+    // Xử lý dữ liệu chi phí
+    const { total_cost: totalCostValue, phi_kham: phiKhamValue } = costResponse.data.data || {};
+    setTotalCost(totalCostValue !== undefined ? totalCostValue : 0);
+    setPhiKham(phiKhamValue !== undefined ? phiKhamValue : 0);
+    
+    setIsDonThuocModalVisible(true);
+  } catch (error: any) {
+    console.error('Error fetching don thuoc or total cost:', error);
+    message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
+    setTotalCost(null);
+    setPhiKham(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Hàm helper để format thông tin khách hàng một cách an toàn
+const formatKhachHangInfo = (selectedAppointment: any) => {
+  return {
+    hoTen: selectedAppointment?.ho_ten || 'N/A',
+    gioiTinh: selectedAppointment?.gioi_tinh || 'N/A',
+    namSinh: selectedAppointment?.ngay_sinh 
+      ? dayjs(selectedAppointment.ngay_sinh).format('YYYY') 
+      : 'N/A',
+    soDienThoai: selectedAppointment?.so_dien_thoai || 'N/A',
+    diaChi: selectedAppointment?.dia_chi || 'N/A',
+    chanDoan: selectedAppointment?.trieu_chung || 'Chưa xác định',
   };
+};
+
 
   const handleCancel = () => {
     setIsModalVisible(false);
@@ -689,6 +747,193 @@ const Quanlykhambenh: React.FC = () => {
     }
     return <Tag color="default">Chưa quyết định</Tag>;
   };
+
+const generatePDF = () => {
+  console.log('selectedAppointment:', selectedAppointment);
+  console.log('donThuocData:', donThuocData);
+  console.log('totalCost:', totalCost);
+  console.log('phiKham:', phiKham);
+
+  if (!selectedAppointment || !donThuocData.length || totalCost === null || phiKham === null) {
+    message.error('Không thể tạo PDF - Thiếu thông tin cần thiết');
+    return;
+  }
+
+  try {
+    setPdfGenerating(true);
+
+    // Format thông tin khách hàng
+    const khachHangInfo = formatKhachHangInfo(selectedAppointment);
+
+    // Tạo phần tử HTML tạm thời với thiết kế phù hợp A5
+    const element = document.createElement('div');
+    element.style.cssText = `
+      width: 148mm;
+      min-height: 210mm;
+      padding: 15mm 10mm;
+      font-family: 'Times New Roman', serif;
+      background: white;
+      margin: 0 auto;
+      box-sizing: border-box;
+      line-height: 1.5;
+    `;
+    
+    element.innerHTML = `
+      <!-- Header bệnh viện -->
+      <div style="text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+          <div style="text-align: center;">
+            <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">BỆNH VIỆN ĐA KHOA TỈNH</div>
+            <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA KHÁM BỆNH</div>
+          </div>
+        </div>
+        <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">ĐƠN THUỐC</div>
+        <div style="font-size: 12px; font-style: italic;">(Kèm theo phiếu khám bệnh số: ${selectedAppointment.id || ''})</div>
+      </div>
+
+      <!-- Thông tin bệnh nhân -->
+      <div style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; font-size: 13px;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Thông tin bệnh nhân</div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
+            <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
+            <td style="padding: 5px 0;"><strong>SĐT:</strong> ${khachHangInfo.soDienThoai}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
+            <td style="padding: 5px 0;"><strong>Ngày khám:</strong> ${dayjs().format('DD/MM/YYYY')}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.chanDoan}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Danh sách thuốc -->
+      <div style="margin-bottom: 15px;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Đơn thuốc điều trị</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd;">
+          <thead>
+            <tr style="background: #f2f2f2;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 8%;">STT</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 32%;">Tên thuốc</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 40%;">Hướng dẫn sử dụng</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${donThuocData.map((thuoc, index) => `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${index + 1}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${thuoc.ten_thuoc}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${thuoc.don_vi}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${thuoc.so_luong}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">
+                  <div><strong>Liều dùng:</strong> ${thuoc.lieu_luong}</div>
+                  <div><strong>Cách dùng:</strong> ${thuoc.tan_suat}</div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Chi phí -->
+      <div style="margin-bottom: 15px; font-size: 13px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; width: 70%; text-align: right;"><strong>Phí khám bệnh:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${phiKham?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Tiền thuốc:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${(totalCost - phiKham)?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          <tr style="font-weight: bold;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Tổng cộng:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${totalCost?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Hướng dẫn và ký tên -->
+      <div style="margin-top: 20px;">
+        <div style="margin-bottom: 15px; font-size: 12px; border: 1px solid #ddd; padding: 10px;">
+          <div style="font-weight: bold; margin-bottom: 5px;">HƯỚNG DẪN SỬ DỤNG THUỐC:</div>
+          <div>- Uống thuốc đúng liều lượng, đúng giờ theo chỉ định của bác sĩ</div>
+          <div>- Không tự ý ngưng thuốc khi chưa hết liệu trình</div>
+          <div>- Tái khám đúng hẹn hoặc khi có dấu hiệu bất thường</div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
+            <div style="font-weight: bold;">BỆNH NHÂN/KHÁCH HÀNG</div>
+            <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
+          </div>
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
+            <div style="font-weight: bold;">BÁC SĨ ĐIỀU TRỊ</div>
+            <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+        <div>BỆNH VIỆN ĐA KHOA TỈNH - Địa chỉ: Số 123, Đường ABC, Thành phố XYZ</div>
+        <div>Điện thoại: 0123.456.789 - Email: info@benhvienexample.com</div>
+        <div style="font-style: italic;">"Chất lượng phục vụ - Tận tâm chăm sóc"</div>
+      </div>
+    `;
+    
+    document.body.appendChild(element);
+
+    // Chụp ảnh bằng html2canvas với cấu hình phù hợp A5
+    html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 148 * 3.779527559, // Convert mm to pixels (148mm)
+      height: 210 * 3.779527559, // Convert mm to pixels (210mm)
+    }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = 148; // Chiều rộng hình ảnh trong PDF (mm)
+      const imgHeight = canvas.height * imgWidth / canvas.width; // Tính chiều cao tự động
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a5'
+      });
+
+      doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+
+      const filename = `DonThuoc_${selectedAppointment.id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+      doc.save(filename);
+      
+      message.success('Đơn thuốc đã được tải xuống thành công');
+      
+      document.body.removeChild(element);
+    }).catch((error) => {
+      console.error('Lỗi khi chụp canvas:', error);
+      message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
+      document.body.removeChild(element);
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
 
   const columns = [
     { title: 'Mã', dataIndex: 'id', key: 'id', width: 80 },
@@ -880,7 +1125,26 @@ const Quanlykhambenh: React.FC = () => {
         setTotalCost(null);
         setPhiKham(null);
       }}
-      footer={null}
+      footer={[
+        <Button
+          key="cancel"
+          onClick={() => {
+            setIsDonThuocModalVisible(false);
+            setTotalCost(null);
+            setPhiKham(null);
+          }}
+        >
+          Đóng
+        </Button>,
+        <Button
+          key="print"
+          type="primary"
+          onClick={generatePDF}
+          loading={pdfGenerating}
+        >
+          In PDF
+        </Button>,
+      ]}
       width={800}
     >
       <Spin spinning={loading}>

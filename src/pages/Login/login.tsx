@@ -20,7 +20,7 @@ function Login({ onLoginSuccess }: LoginProps) {
                 email,
                 password
             });
-
+            console.log('User Data:', response)
             if (response.status === 200) {
                 // Đăng nhập thành công
                 console.log('Đăng nhập thành công:', response.data);
@@ -32,7 +32,9 @@ function Login({ onLoginSuccess }: LoginProps) {
                     email: response.data.email,
                     khoa_id: response.data.khoa_id,
                     role:response.data.role,
-                     bac_si_id:response.data.bac_si_id 
+                     bac_si_id:response.data.bac_si_id ,
+                     function_keys: response.data.function_keys || []
+                    //  function_keys: response.data.function_keys // Chứa các chức năng người dùng có quyền truy cập
                      // Email người dùng
                 };
 

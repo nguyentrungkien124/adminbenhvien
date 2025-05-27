@@ -1,5 +1,5 @@
 import { faCalendarAlt, faChevronRight, faCircleLeft, faCircleRight, faHospital, faMedkit, faMoneyBillWave, faStethoscope } from "@fortawesome/free-solid-svg-icons";
-import "../ok/datlich.css";
+import "../banglichlamviecbybs/datlich.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -54,7 +54,7 @@ const Banglichlamviecbybs = () => {
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
 
-  // Fetch available days
+  // Fetch available days (bao gồm cả ngày đã qua)
   useEffect(() => {
     const fetchAvailableDays = async () => {
       if (!bacSiId) return;
@@ -67,16 +67,8 @@ const Banglichlamviecbybs = () => {
           }
         );
         console.log("Dữ liệu:", response.data);
-        const todayForComparison = new Date();
-        todayForComparison.setHours(0, 0, 0, 0);
 
-        const futureAvailableDays = response.data.filter((item: any) => {
-          const ngayLamViec = new Date(item.ngay_lam_viec);
-          ngayLamViec.setHours(0, 0, 0, 0);
-          return ngayLamViec >= todayForComparison;
-        });
-
-        const daysInCurrentMonth = futureAvailableDays
+        const daysInCurrentMonth = response.data
           .filter((item: any) => {
             const ngayLamViec = new Date(item.ngay_lam_viec);
             return (
@@ -95,7 +87,7 @@ const Banglichlamviecbybs = () => {
     fetchAvailableDays();
   }, [bacSiId, month, year]);
 
-  // Fetch shift data using the new API
+  // Fetch shift data (bao gồm cả ca đã qua)
   const fetchShiftData = async (day: number) => {
     if (!bacSiId) return;
 
@@ -116,7 +108,7 @@ const Banglichlamviecbybs = () => {
 
       if (Array.isArray(response.data)) {
         const filteredShifts = response.data.filter(
-          (shift: Shift) =>  !paidShifts.includes(Number(shift.id))
+          (shift: Shift) => !paidShifts.includes(Number(shift.id))
         );
 
         console.log("Ca làm đã lọc:", filteredShifts);
@@ -124,14 +116,14 @@ const Banglichlamviecbybs = () => {
         setShiftData(filteredShifts);
 
         if (filteredShifts.length === 0) {
-          setNoShiftsMessage("Ngày làm việc hôm nay đã hết ca làm việc. Vui lòng chọn ngày khác!!");
+          setNoShiftsMessage("Ngày này không có ca làm việc.");
         } else {
           setNoShiftsMessage(null);
         }
       } else {
         console.error("Lỗi:", response.data.message);
         setShiftData([]);
-        setNoShiftsMessage("Ngày làm việc hôm nay đã hết ca làm việc.");
+        setNoShiftsMessage("Ngày này không có ca làm việc.");
       }
     } catch (error) {
       console.error("Lỗi khi lấy dữ liệu ca làm:", error);
@@ -235,12 +227,17 @@ const Banglichlamviecbybs = () => {
         const endHour = shift.gio_ket_thuc.split(":")[0].padStart(2, "0");
         const endMinute = shift.gio_ket_thuc.split(":")[1];
 
+        // Kiểm tra ca đã qua dựa trên ngày và giờ
+        const shiftDateTime = new Date(`${shift.ngay_lam_viec} ${shift.gio_ket_thuc}`);
+        const isPastShift = shiftDateTime < new Date();
+
         return (
           <li key={shift.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
             <button
               className="giokham_btnTime"
-              style={{ background: "#fff", marginRight: '10px' }}
-              onClick={() => setSelectedShift(shift)}
+              style={{ background: "#fff", marginRight: '10px', opacity: isPastShift ? 0.5 : 1, cursor: isPastShift ? 'not-allowed' : 'pointer' }}
+              onClick={() => !isPastShift && setSelectedShift(shift)}
+              disabled={isPastShift}
             >
               <span>{`${startHour}:${startMinute} - ${endHour}:${endMinute}`}</span>
             </button>
@@ -342,12 +339,16 @@ const Banglichlamviecbybs = () => {
             params: { month: month + 1, year },
           }
         );
-        const futureAvailableDays = response.data.filter((item: any) => {
-          const ngayLamViec = new Date(item.ngay_lam_viec);
-          ngayLamViec.setHours(0, 0, 0, 0);
-          return ngayLamViec >= new Date();
-        }).map((item: any) => new Date(item.ngay_lam_viec).getDate());
-        setAvailableDays(futureAvailableDays.filter((d: number) => new Date(year, month, d) >= new Date()));
+        const daysInCurrentMonth = response.data
+          .filter((item: any) => {
+            const ngayLamViec = new Date(item.ngay_lam_viec);
+            return (
+              ngayLamViec.getMonth() === month &&
+              ngayLamViec.getFullYear() === year
+            );
+          })
+          .map((item: any) => new Date(item.ngay_lam_viec).getDate());
+        setAvailableDays(daysInCurrentMonth);
       };
       fetchAvailableDays();
       // Làm mới dữ liệu ca làm nếu ngày vừa thêm là ngày đang chọn
