@@ -22,7 +22,6 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 
-// Định nghĩa theme
 const theme = {
   useToken: () => ({
     token: {
@@ -35,22 +34,22 @@ const theme = {
 const { Header, Content, Footer, Sider } = Layout;
 const { Text } = Typography;
 
-// Interfaces
 interface Notification {
   message: string;
   time: number;
   seen: boolean;
+  bac_si_id?: number | string;
 }
 
 interface SocketNotificationData {
   message: string;
+  bac_si_id?: number | string;
 }
 
 interface AppointmentCountData {
   count: number;
 }
 
-// Singleton Socket Management
 let socketInstance: Socket | null = null;
 
 const connectSocket = (): Socket => {
@@ -87,7 +86,6 @@ const disconnectSocket = () => {
   }
 };
 
-// Menu items
 const items2 = [
   {
     key: 'sub4',
@@ -276,30 +274,38 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
   console.log('Admin component re-rendered at', new Date().toISOString());
   console.log('Notifications:', notifications);
   console.log('Notification Count:', notificationCount);
+  console.log('User Data:', userData);
 
-  // Initialize user data
   useEffect(() => {
     const storedUser = sessionStorage.getItem('user');
+    console.log('Stored user from sessionStorage:', storedUser);
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
+        console.log('Parsed user:', parsedUser);
         setUserData(parsedUser);
         setRole(parsedUser.role);
       } catch (error) {
         console.error('Error parsing user from sessionStorage:', error);
         sessionStorage.removeItem('user');
       }
+    } else {
+      console.error('No user data found in sessionStorage');
     }
   }, []);
 
-  // Fetch user info and setup socket
   useEffect(() => {
-    if (!userData) return;
+    if (!userData) {
+      console.log('userData is null, skipping effect');
+      return;
+    }
 
     const fetchUserInfo = async () => {
       try {
-        const bac_si_id = userData.bac_si_id;
+        const bac_si_id = userData.bac_si_id || userData.id;
         const khoa_id = userData.khoa_id;
+
+        console.log('Fetching user info for bac_si_id:', bac_si_id, 'khoa_id:', khoa_id);
 
         if (!bac_si_id || !khoa_id) {
           throw new Error('Không tìm thấy bac_si_id hoặc khoa_id');
@@ -321,22 +327,23 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
           ho_ten: bacsiData[0].ho_ten || 'Không có tên',
           ten_khoa: khoaData[0]?.ten || 'Không có khoa',
         });
-      } catch (error) {
-        console.error('Lỗi khi lấy thông tin:', error);
+      } catch (error: any) {
+        console.error('Lỗi khi lấy thông tin:', error.message);
         setUserInfo({
           ho_ten: 'Không thể lấy tên',
-          ten_khoa: 'Không thể lấy khoa',
+          ten_khoa: 'Không có khoa',
         });
       }
     };
 
     fetchUserInfo();
 
-    const storedNotifications = localStorage.getItem('notifications');
+    const storedNotifications = localStorage.getItem(`notifications_${userData.bac_si_id || userData.id}`);
+    console.log('Stored notifications:', storedNotifications);
     if (storedNotifications) {
       const parsedNotifications: Notification[] = JSON.parse(storedNotifications);
       setNotifications(parsedNotifications);
-      setNotificationCount(parsedNotifications.filter((noti) => !noti.seen).length);
+      setNotificationCount(parsedNotifications.filter((noti) => !noti.seen).length); // Đồng bộ ngay từ đầu
     }
 
     const socket = connectSocket();
@@ -344,25 +351,50 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id, 'at', new Date().toISOString());
       setSocketError(null);
-      if (userData.bac_si_id) {
-        console.log('Joining room for bac_si_id:', userData.bac_si_id);
-        socket.emit('join_room', { bac_si_id: userData.bac_si_id });
+      const bacId = userData.bac_si_id || userData.id;
+      console.log('bacId for joining room:', bacId);
+      if (bacId) {
+        console.log('Joining room for bac_si_id:', bacId);
+        socket.emit('join_room', { bac_si_id: bacId });
+        socket.on('room_joined', (room) => {
+          console.log('Successfully joined room:', room, 'at', new Date().toISOString());
+        });
+      } else {
+        console.error('No bac_si_id or id found for joining room');
       }
     });
 
     socket.on('newNotification', (data: SocketNotificationData) => {
       console.log('New notification received:', data, 'at', new Date().toISOString());
+      const currentBacSiId = userData.bac_si_id || userData.id;
+      console.log('Current bac_si_id:', currentBacSiId, 'Received bac_si_id:', data.bac_si_id);
+
       const newNotification: Notification = {
-        message: data.message,
+        message: data.message || 'Thông báo mặc định',
         time: Date.now(),
         seen: false,
+        bac_si_id: data.bac_si_id || currentBacSiId,
       };
+
       setNotifications((prev) => {
+        // Kiểm tra trùng lặp với khoảng thời gian rộng hơn (5 giây)
+        const isDuplicate = prev.some(
+          (noti) =>
+            noti.message === newNotification.message &&
+            noti.bac_si_id === newNotification.bac_si_id &&
+            Math.abs(noti.time - newNotification.time) < 5000 // Tăng lên 5 giây
+        );
+
+        if (isDuplicate) {
+          console.log('Duplicate notification detected, skipping:', newNotification);
+          return prev;
+        }
+
         const updatedNotifications = [...prev, newNotification];
-        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+        localStorage.setItem(`notifications_${currentBacSiId}`, JSON.stringify(updatedNotifications));
+        setNotificationCount(updatedNotifications.filter((noti) => !noti.seen).length); // Đồng bộ ngay sau khi thêm
         return updatedNotifications;
       });
-      setNotificationCount((prev) => prev + 1);
     });
 
     socket.on('appointmentCount', (data: AppointmentCountData) => {
@@ -385,8 +417,14 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
       socket.off('appointmentCount');
       socket.off('connect_error');
       socket.off('reconnect_failed');
+      socket.off('room_joined');
     };
   }, [userData]);
+
+  // Đồng bộ notificationCount mỗi khi notifications thay đổi
+  useEffect(() => {
+    setNotificationCount(notifications.filter((noti) => !noti.seen).length);
+  }, [notifications]);
 
   const getTimeAgo = (timestamp: number) => {
     const now = Date.now();
@@ -404,10 +442,11 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
     setNotifications((prev) => {
       const updatedNotifications = [...prev];
       updatedNotifications[index].seen = true;
-      localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      const currentBacSiId = userData?.bac_si_id || userData?.id;
+      localStorage.setItem(`notifications_${currentBacSiId}`, JSON.stringify(updatedNotifications));
+      setNotificationCount(updatedNotifications.filter((noti) => !noti.seen).length); // Đồng bộ sau khi đánh dấu seen
       return updatedNotifications;
     });
-    setNotificationCount((prev) => Math.max(prev - 1, 0));
     navigate('/Lichhenkham');
   };
 
@@ -422,12 +461,9 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
       if (role === 'admin') {
         return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
       } else if (role === 'bacsi') {
-        // Kiểm tra khoa_id
         if (userData?.khoa_id && parseInt(userData.khoa_id) === 20) {
-          // Chỉ hiển thị sub20, sub2 và sub8 khi khoa_id = 20
           return ['sub20', 'sub2', 'sub8'].includes(item.key);
         } else {
-          // Các mục mặc định khi khoa_id khác 20
           const baseItems = ['sub2', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub18', 'sub19', 'sub22'];
           return baseItems.includes(item.key);
         }
@@ -468,7 +504,7 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
             style={{
               cursor: 'pointer',
               backgroundColor: item.seen ? '#f5f5f5' : '#e6f7ff',
-              padding: '8px', // Đã sửa lỗi cú pháp ở đây
+              padding: '8px',
               borderBottom: '1px solid #f0f0f0',
             }}
           >
@@ -558,7 +594,7 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
         </div>
       </Header>
       <Content style={{ padding: '0 48px', maxHeight: 2207, border: 20, backgroundColor: '#31304d' }}>
-        <Breadcrumb style={{ margin: '16px 0', color: '#fff' }} />
+        <Breadcrumb style={{ margin: '16px 0', color: 'white' }} />
         <Layout
           style={{
             padding: '24px 0',

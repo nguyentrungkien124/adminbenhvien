@@ -44,6 +44,8 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import { Dropdown, Menu } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -62,6 +64,9 @@ interface Inpatient {
   bed_code: string;
   ngay_nhap_vien: string;
   da_thanh_toan: number;
+  ngay_xuat_vien: string | null;
+  patient_id?: string; // Thêm thuộc tính patient_id
+  doctor_name?: string; // Thêm thuộc tính doctor_name
 }
 
 interface Room {
@@ -101,12 +106,15 @@ interface ChiDinhThuoc {
   tan_suat: string;
   ngay_chi_dinh: string;
   nguoi_chi_dinh: string;
+  gia: number;
+  ghi_chu?: string; // Thêm thuộc tính ghi_chu
 }
 
 interface Kho {
   kho_id: number;
   ten_san_pham: string;
   don_vi_tinh: string;
+  don_gia: string;
 }
 
 interface ChiPhi {
@@ -125,6 +133,12 @@ interface TongChiPhi {
   trang_thai_thanh_toan: string;
 }
 
+interface KhachHang {
+  gioi_tinh?: string;
+  ngay_sinh?: string;
+  dia_chi?: string;
+}
+
 const IndexNoitru: React.FC = () => {
   const [inpatients, setInpatients] = useState<Inpatient[]>([]);
   const [filteredInpatients, setFilteredInpatients] = useState<Inpatient[]>([]);
@@ -136,6 +150,7 @@ const IndexNoitru: React.FC = () => {
   const [chiPhiList, setChiPhiList] = useState<ChiPhi[]>([]);
   const [tongChiPhi, setTongChiPhi] = useState<TongChiPhi | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [pdfGenerating, setPdfGenerating] = useState<boolean>(false);
   const [searchText, setSearchText] = useState<string>('');
   const [isDischargeModalVisible, setIsDischargeModalVisible] = useState<boolean>(false);
   const [isTransferBedModalVisible, setIsTransferBedModalVisible] = useState<boolean>(false);
@@ -153,6 +168,7 @@ const IndexNoitru: React.FC = () => {
   const [chiDinhThuocForm] = Form.useForm();
   const [chiPhiForm] = Form.useForm();
   const [khoaName, setKhoaName] = useState<string>('Không có khoa');
+  const [khachHangData, setKhachHangData] = useState<KhachHang>({});
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
   const bacSiId = user.bac_si_id;
@@ -163,7 +179,6 @@ const IndexNoitru: React.FC = () => {
         try {
           const response = await axios.get(`http://localhost:9999/api/khoa/getkhoabyid/${khoaId}`);
           const khoaData = response.data;
-          console.log('Khoa Data:', khoaData);
           setKhoaName(khoaData[0]?.ten || 'Không có khoa');
         } catch (error) {
           console.error('Error fetching khoa name:', error);
@@ -190,8 +205,6 @@ const IndexNoitru: React.FC = () => {
           axios.get(`http://localhost:9999/api/noitru/kho`),
         ]);
 
-        console.log('API /api/noitru/getdsNoitru response:', inpatientsRes.data);
-        console.log('API /api/noitru/kho response:', khoRes.data);
         setInpatients(inpatientsRes.data.data || []);
         setFilteredInpatients(inpatientsRes.data.data || []);
         setStats(statsRes.data.data || { total_inpatients: 0, beds_in_use: 0, beds_available: 0 });
@@ -215,7 +228,6 @@ const IndexNoitru: React.FC = () => {
         } else if (khoRes.data.data && typeof khoRes.data.data === 'object') {
           khoData = [khoRes.data.data];
         }
-        console.log('Processed khoList:', khoData);
         setKhoList(khoData);
 
         if (inpatientsRes.data.data.length === 0) {
@@ -278,7 +290,7 @@ const IndexNoitru: React.FC = () => {
     }
     try {
       setLoading(true);
-      const response = await axios.post(`http://localhost:9999/api/noitru/chuyenGiuong`, {
+      const response = await axios.put(`http://localhost:9999/api/noitru/chuyenGiuong`, {
         admission_id: selectedAdmissionId,
         new_bed_id: selectedBedId,
       });
@@ -327,16 +339,31 @@ const IndexNoitru: React.FC = () => {
         axios.get(`http://localhost:9999/api/noitru/chi-phi/${inpatient.admission_id}`),
         axios.get(`http://localhost:9999/api/noitru/tong-chi-phi/${inpatient.admission_id}`),
       ]);
-      console.log('API /api/noitru/dien-bien response:', dienBienResponse.data);
-      console.log('API /api/noitru/chi-dinh-thuoc response:', chiDinhThuocResponse.data);
-      console.log('API /api/noitru/chi-phi response:', chiPhiResponse.data);
-      console.log('API /api/noitru/tong-chi-phi response:', tongChiPhiResponse.data);
-      console.log('Setting tongChiPhi for Chi phí tab:', tongChiPhiResponse.data.data);
+
+      let khachHangData: KhachHang = {};
+      try {
+        const khachHangResponse = await axios.get(`http://localhost:9999/api/user/getthongtinbyId/${inpatient.khach_hang_id}`);
+        const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
+        khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
+      } catch (error) {
+        console.error('Error fetching khach hang data:', error);
+        message.warning('Không thể lấy thông tin khách hàng. Một số thông tin có thể không hiển thị.');
+      }
+
+      const updatedChiDinhThuocList = (chiDinhThuocResponse.data.data || []).map((thuoc: ChiDinhThuoc) => {
+        const khoItem = khoList.find((kho) => kho.kho_id === thuoc.kho_id);
+        return {
+          ...thuoc,
+          gia: khoItem ? parseFloat(khoItem.don_gia) : 0,
+        };
+      });
+
       setSelectedInpatient(inpatient);
       setDienBienList(dienBienResponse.data.data || []);
-      setChiDinhThuocList(chiDinhThuocResponse.data.data || []);
+      setChiDinhThuocList(updatedChiDinhThuocList);
       setChiPhiList(chiPhiResponse.data.data || []);
       setTongChiPhi(tongChiPhiResponse.data.data || null);
+      setKhachHangData(khachHangData);
       setIsDetailsModalVisible(true);
     } catch (error: any) {
       console.error('Error fetching details:', error);
@@ -347,13 +374,11 @@ const IndexNoitru: React.FC = () => {
   };
 
   const showDienBienModal = (admissionId: number) => {
-    console.log('showDienBienModal called with admissionId:', admissionId);
     setSelectedAdmissionId(admissionId);
     setIsDienBienModalVisible(true);
   };
 
   const showChiDinhThuocModal = (admissionId: number) => {
-    console.log('showChiDinhThuocModal called with admissionId:', admissionId);
     setSelectedAdmissionId(admissionId);
     setIsChiDinhThuocModalVisible(true);
   };
@@ -379,7 +404,6 @@ const IndexNoitru: React.FC = () => {
         ghi_chu: values.ghi_chu || '',
         nguoi_ghi_nhan_id: bacSiId,
       };
-      console.log('Calling API /api/noitru/dien-bien with data:', data);
       const response = await axios.post('http://localhost:9999/api/noitru/dien-bien', data);
       message.success(response.data.message || 'Cập nhật diễn biến thành công');
       setIsDienBienModalVisible(false);
@@ -413,7 +437,6 @@ const IndexNoitru: React.FC = () => {
         tan_suat: prescription.tan_suat,
         nguoi_chi_dinh_id: bacSiId,
       }));
-      console.log('Calling API /api/noitru/chi-dinh-thuoc with data:', { prescriptions });
       const response = await axios.post('http://localhost:9999/api/noitru/chi-dinh-thuoc', { prescriptions });
       message.success(response.data.message || 'Chỉ định thuốc thành công');
       setIsChiDinhThuocModalVisible(false);
@@ -421,7 +444,14 @@ const IndexNoitru: React.FC = () => {
 
       if (selectedInpatient && selectedInpatient.admission_id === selectedAdmissionId) {
         const chiDinhThuocResponse = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${selectedAdmissionId}?null`);
-        setChiDinhThuocList(chiDinhThuocResponse.data.data || []);
+        const updatedChiDinhThuocList = (chiDinhThuocResponse.data.data || []).map((thuoc: ChiDinhThuoc) => {
+          const khoItem = khoList.find((kho) => kho.kho_id === thuoc.kho_id);
+          return {
+            ...thuoc,
+            gia: khoItem ? parseFloat(khoItem.don_gia) : 0,
+          };
+        });
+        setChiDinhThuocList(updatedChiDinhThuocList);
       }
     } catch (error: any) {
       console.error('Error adding chi dinh thuoc:', error);
@@ -450,7 +480,6 @@ const IndexNoitru: React.FC = () => {
           message.error('Không tìm thấy giường của bệnh nhân');
           return;
         }
-        console.log('Calling API /api/noitru/chi-phi-giuong with data:', data);
         response = await axios.post('http://localhost:9999/api/noitru/chi-phi-giuong', data);
       } else {
         const data = {
@@ -459,7 +488,6 @@ const IndexNoitru: React.FC = () => {
           so_tien: Number(values.so_tien),
           ghi_chu: values.ghi_chu || '',
         };
-        console.log('Calling API /api/noitru/chi-phi with data:', data);
         response = await axios.post('http://localhost:9999/api/noitru/chi-phi', data);
       }
       message.success(response.data.message || 'Thêm chi phí thành công');
@@ -490,151 +518,408 @@ const IndexNoitru: React.FC = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
-const columns = [
-  {
-    title: 'Mã nhập viện',
-    dataIndex: 'admission_id',
-    key: 'admission_id',
-    width: 100,
-  },
-  {
-    title: 'Bệnh nhân',
-    key: 'patient',
-    width: 200,
-    render: (_: any, record: Inpatient) => (
-      <Space direction="vertical" size={0}>
-        <Space>
-          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
-          <Text strong>{record.ho_ten}</Text>
+  const formatKhachHangInfo = (selectedInpatient: Inpatient | null) => {
+    return {
+      hoTen: selectedInpatient?.ho_ten || 'N/A',
+      gioiTinh: khachHangData.gioi_tinh || 'N/A',
+      namSinh: khachHangData.ngay_sinh ? dayjs(khachHangData.ngay_sinh).format('YYYY') : 'N/A',
+      soDienThoai: selectedInpatient?.so_dien_thoai || 'N/A',
+      diaChi: khachHangData.dia_chi || 'N/A',
+      ket_qua_kham: selectedInpatient?.ket_qua_kham || 'Chưa xác định',
+    };
+  };
+
+  const generatePDF = () => {
+    if (!selectedInpatient || !chiDinhThuocList.length || !tongChiPhi || !chiPhiList) {
+      message.error('Không thể tạo PDF - Thiếu thông tin cần thiết');
+      return;
+    }
+    
+    const totalMedicineCost = chiDinhThuocList.reduce((sum, thuoc) => sum + (thuoc.so_luong * thuoc.gia), 0);
+    try {
+      setPdfGenerating(true);
+
+      const khachHangInfo = formatKhachHangInfo(selectedInpatient);
+      const chiPhiGiuong = chiPhiList.find((chiPhi) => chiPhi.loai_chi_phi === 'giuong');
+      const ngayXuatVien = selectedInpatient.ngay_xuat_vien
+        ? dayjs(selectedInpatient.ngay_xuat_vien).format('DD/MM/YYYY')
+        : 'Chưa xuất viện';
+      const currentDate = dayjs().format('DD/MM/YYYY');
+      const currentTime = dayjs().format('HH:mm');
+
+      const element = document.createElement('div');
+      element.style.cssText = `
+        width: 210mm;
+        min-height: 297mm;
+        padding: 15mm;
+        font-family: 'Times New Roman', serif;
+        background: white;
+        margin: 0 auto;
+        box-sizing: border-box;
+        line-height: 1.5;
+        font-size: 14px;
+      `;
+      
+      element.innerHTML = `
+        <!-- Header bệnh viện -->
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">BỆNH VIỆN ĐA KHOA TỈNH</div>
+          <div style="font-size: 16px; margin-bottom: 5px;">Địa chỉ: Số 123, Đường ABC, Thành phố XYZ</div>
+          <div style="font-size: 16px; margin-bottom: 5px;">Điện thoại: 0123.456.789 - Fax: 0123.456.789</div>
+          <div style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 10px 0; color: #1a5276;">
+            HÓA ĐƠN THANH TOÁN DỊCH VỤ Y TẾ
+          </div>
+          <div style="font-size: 14px;">Số hóa đơn: ${selectedInpatient.admission_id || 'N/A'} - Ngày: ${currentDate}</div>
+        </div>
+
+        <!-- Thông tin bệnh nhân -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+            THÔNG TIN BỆNH NHÂN
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
+              <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
+              <td style="padding: 5px 0;"><strong>Số điện thoại:</strong> ${khachHangInfo.soDienThoai}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
+              <td style="padding: 5px 0;"><strong>Mã bệnh nhân:</strong> ${selectedInpatient.patient_id || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0;"><strong>Ngày nhập viện:</strong> ${dayjs(selectedInpatient.ngay_nhap_vien).format('DD/MM/YYYY')}</td>
+              <td style="padding: 5px 0;"><strong>Ngày xuất viện:</strong> ${ngayXuatVien}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham || 'Không có thông tin'}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding: 5px 0;"><strong>Khoa điều trị:</strong> Nội trú</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0;"><strong>Giường:</strong> ${selectedInpatient.bed_code || 'Giường 01'}</td>
+              <td style="padding: 5px 0;"><strong>Bác sĩ điều trị:</strong> ${selectedInpatient.doctor_name || 'Không có thông tin'}</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Danh sách dịch vụ -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+            DANH SÁCH DỊCH VỤ Y TẾ
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #000;">
+            <thead>
+              <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 5%;">STT</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: left; width: 45%;">Tên dịch vụ/Thuốc</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Đơn giá (VNĐ)</th>
+                <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Thành tiền (VNĐ)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dịch vụ khám -->
+              <tr>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
+                <td style="border: 1px solid #000; padding: 8px;">Phí khám bệnh</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">Lần</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+              </tr>
+              
+              <!-- Dịch vụ giường -->
+              ${chiPhiGiuong ? `
+              <tr>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">2</td>
+                <td style="border: 1px solid #000; padding: 8px;">Phí giường bệnh</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">Ngày</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien * calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien))}</td>
+              </tr>
+              ` : ''}
+              
+              <!-- Danh sách thuốc -->
+              ${chiDinhThuocList.map((thuoc, index) => `
+                <tr>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + 3}</td>
+                  <td style="border: 1px solid #000; padding: 8px;">${thuoc.ten_thuoc}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.don_vi}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.so_luong}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.gia)}</td>
+                  <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.so_luong * thuoc.gia)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tổng chi phí -->
+        <div style="margin-bottom: 20px; font-size: 14px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; width: 80%; text-align: right;"><strong>Tổng cộng:</strong></td>
+              <td style="padding: 8px 0; text-align: right; font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000;">
+                ${formatCurrency(tongChiPhi.tong_tien)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; text-align: right;"><strong>Giảm trừ (nếu có):</strong></td>
+              <td style="padding: 8px 0; text-align: right;">${formatCurrency(0)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; text-align: right;"><strong>Phải thanh toán:</strong></td>
+              <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #c0392b;">
+                ${formatCurrency(tongChiPhi.tong_tien)}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Hướng dẫn sử dụng thuốc -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+            HƯỚNG DẪN SỬ DỤNG THUỐC
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            ${chiDinhThuocList.map((thuoc, index) => `
+              <tr>
+                <td style="padding: 5px 0; width: 30%;"><strong>${index + 1}. ${thuoc.ten_thuoc}:</strong></td>
+                <td style="padding: 5px 0;">
+                  <div><strong>Liều dùng:</strong> ${thuoc.lieu_luong}</div>
+                  <div><strong>Cách dùng:</strong> ${thuoc.tan_suat}</div>
+                  <div><strong>Ghi chú:</strong> ${thuoc.ghi_chu || 'Không có'}</div>
+                </td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+
+        <!-- Phần chữ ký -->
+        <div style="display: flex; justify-content: space-between; margin-top: 40px;">
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic;">Ngày ${currentDate}</div>
+            <div style="margin-top: 50px; font-weight: bold;">BỆNH NHÂN/KHÁCH HÀNG</div>
+            <div style="margin-top: 30px;">${khachHangInfo.hoTen}</div>
+          </div>
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic;">Ngày ${currentDate}</div>
+            <div style="margin-top: 50px; font-weight: bold;">NGƯỜI LẬP HÓA ĐƠN</div>
+            <div style="margin-top: 30px;">${selectedInpatient.doctor_name || 'Bác sĩ điều trị'}</div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #555;">
+          <div>Hóa đơn điện tử có giá trị thay thế hóa đơn giấy theo Thông tư 68/2019/TT-BTC</div>
+          <div>Quý khách vui lòng kiểm tra kỹ hóa đơn trước khi thanh toán</div>
+          <div>Mọi thắc mắc xin liên hệ phòng Kế toán - Bệnh viện Đa khoa Tỉnh</div>
+        </div>
+      `;
+      
+      document.body.appendChild(element);
+
+      html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 210 * 3.779527559,
+        height: element.offsetHeight * 3.779527559,
+      }).then((canvas) => {
+        const imgData = canvas.toDataURL('image/png', 1.0);
+        const imgWidth = 210;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+
+        const filename = `HoaDon_${selectedInpatient.admission_id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+        doc.save(filename);
+        
+        message.success('Hóa đơn đã được tải xuống thành công');
+        
+        document.body.removeChild(element);
+      }).catch((error) => {
+        console.error('Lỗi khi chụp canvas:', error);
+        message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
+        document.body.removeChild(element);
+      });
+
+    } catch (error) {
+      console.error('Lỗi khi tạo PDF:', error);
+      message.error('Không thể tạo PDF. Vui lòng thử lại.');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  // Hàm hỗ trợ tính số ngày nằm viện
+  function calculateDays(ngayNhapVien: string, ngayXuatVien: string | null) {
+    if (!ngayXuatVien) return 1;
+    const start = dayjs(ngayNhapVien);
+    const end = dayjs(ngayXuatVien);
+    return end.diff(start, 'day') + 1;
+  }
+
+  const columns = [
+    {
+      title: 'Mã nhập viện',
+      dataIndex: 'admission_id',
+      key: 'admission_id',
+      width: 100,
+    },
+    {
+      title: 'Bệnh nhân',
+      key: 'patient',
+      width: 200,
+      render: (_: any, record: Inpatient) => (
+        <Space direction="vertical" size={0}>
+          <Space>
+            <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+            <Text strong>{record.ho_ten}</Text>
+          </Space>
+          <Space>
+            <PhoneOutlined style={{ color: '#1890ff' }} />
+            <Text>{record.so_dien_thoai}</Text>
+          </Space>
         </Space>
-        <Space>
-          <PhoneOutlined style={{ color: '#1890ff' }} />
-          <Text>{record.so_dien_thoai}</Text>
-        </Space>
-      </Space>
-    ),
-  },
-  {
-    title: 'Triệu chứng',
-    dataIndex: 'trieu_chung',
-    key: 'trieu_chung',
-    ellipsis: { showTitle: false },
-    render: (text: string) => (
-      <Tooltip title={text}>
-        <Paragraph ellipsis={{ rows: 2 }}>{text}</Paragraph>
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Kết luận',
-    dataIndex: 'ket_qua_kham',
-    key: 'ket_qua_kham',
-    ellipsis: { showTitle: false },
-    render: (text: string | null) => (
-      <Tooltip title={text}>
-        <Paragraph ellipsis={{ rows: 2 }}>{text || 'Chưa có'}</Paragraph>
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Phòng',
-    dataIndex: 'room_name',
-    key: 'room_name',
-    width: 120,
-  },
-  {
-    title: 'Giường',
-    dataIndex: 'bed_code',
-    key: 'bed_code',
-    width: 100,
-  },
-  {
-    title: 'Bác sĩ',
-    dataIndex: 'bac_si_name',
-    key: 'bac_si_name',
-    width: 150,
-  },
-  {
-    title: 'Ngày nhập viện',
-    dataIndex: 'ngay_nhap_vien',
-    key: 'ngay_nhap_vien',
-    width: 150,
-    render: (date: string) => formatDate(date),
-  },
-  {
-    title: 'Trạng thái thanh toán', // Cột mới
-    dataIndex: 'da_thanh_toan',
-    key: 'da_thanh_toan',
-    width: 150,
-    render: (status: number) => (
-      <Tag color={status === 1 ? 'green' : 'red'}>
-        {status === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'}
-      </Tag>
-    ),
-  },
-  {
-    title: 'Hành động',
-    key: 'action',
-    width: 250,
-    render: (_: any, record: Inpatient) => (
-      <Space wrap size="small">
-        <Button
-          type="default"
-          icon={<FileTextOutlined />}
-          onClick={() => showDetailsModal(record)}
-        >
-          Chi tiết
-        </Button>
-        <Dropdown
-          overlay={
-            <Menu>
-              <Menu.Item
-                key="dienBien"
-                icon={<MonitorOutlined />}
-                onClick={() => showDienBienModal(record.admission_id)}
-              >
-                Diễn biến
-              </Menu.Item>
-              <Menu.Item
-                key="thuoc"
-                icon={<MedicineBoxOutlined />}
-                onClick={() => showChiDinhThuocModal(record.admission_id)}
-              >
-                Thuốc
-              </Menu.Item>
-              <Menu.Item
-                key="chiPhi"
-                icon={<DollarOutlined />}
-                onClick={() => showAddChiPhiModal(record.admission_id)}
-              >
-                Chi phí
-              </Menu.Item>
-              <Menu.Item
-                key="chuyenGiuong"
-                icon={<SwapOutlined />}
-                onClick={() => showTransferBedModal(record.admission_id)}
-              >
-                Chuyển giường
-              </Menu.Item>
-            </Menu>
-          }
-        >
-          <Button type="default">
-            Thêm <DownOutlined />
+      ),
+    },
+    {
+      title: 'Triệu chứng',
+      dataIndex: 'trieu_chung',
+      key: 'trieu_chung',
+      ellipsis: { showTitle: false },
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <Paragraph ellipsis={{ rows: 2 }}>{text}</Paragraph>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Kết luận',
+      dataIndex: 'ket_qua_kham',
+      key: 'ket_qua_kham',
+      ellipsis: { showTitle: false },
+      render: (text: string | null) => (
+        <Tooltip title={text}>
+          <Paragraph ellipsis={{ rows: 2 }}>{text || 'Chưa có'}</Paragraph>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Phòng',
+      dataIndex: 'room_name',
+      key: 'room_name',
+      width: 120,
+    },
+    {
+      title: 'Giường',
+      dataIndex: 'bed_code',
+      key: 'bed_code',
+      width: 100,
+    },
+    {
+      title: 'Bác sĩ',
+      dataIndex: 'bac_si_name',
+      key: 'bac_si_name',
+      width: 150,
+    },
+    {
+      title: 'Ngày nhập viện',
+      dataIndex: 'ngay_nhap_vien',
+      key: 'ngay_nhap_vien',
+      width: 150,
+      render: (date: string) => formatDate(date),
+    },
+    {
+      title: 'Trạng thái thanh toán',
+      dataIndex: 'da_thanh_toan',
+      key: 'da_thanh_toan',
+      width: 150,
+      render: (status: number) => (
+        <Tag color={status === 1 ? 'green' : 'red'}>
+          {status === 1 ? 'Đã thanh toán' : 'Chưa thanh toán'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      width: 250,
+      render: (_: any, record: Inpatient) => (
+        <Space wrap size="small">
+          <Button
+            type="default"
+            icon={<FileTextOutlined />}
+            onClick={() => showDetailsModal(record)}
+          >
+            Chi tiết
           </Button>
-        </Dropdown>
-        <Button
-          type="primary"
-          danger
-          icon={<CheckCircleOutlined />}
-          onClick={() => showDischargeModal(record.admission_id)}
-        >
-          Xuất viện
-        </Button>
-      </Space>
-    ),
-  },
-];
+          <Dropdown
+            overlay={
+              <Menu>
+                <Menu.Item
+                  key="dienBien"
+                  icon={<MonitorOutlined />}
+                  onClick={() => showDienBienModal(record.admission_id)}
+                >
+                  Diễn biến
+                </Menu.Item>
+                <Menu.Item
+                  key="thuoc"
+                  icon={<MedicineBoxOutlined />}
+                  onClick={() => showChiDinhThuocModal(record.admission_id)}
+                >
+                  Thuốc
+                </Menu.Item>
+                <Menu.Item
+                  key="chiPhi"
+                  icon={<DollarOutlined />}
+                  onClick={() => showAddChiPhiModal(record.admission_id)}
+                >
+                  Chi phí
+                </Menu.Item>
+                <Menu.Item
+                  key="chuyenGiuong"
+                  icon={<SwapOutlined />}
+                  onClick={() => showTransferBedModal(record.admission_id)}
+                >
+                  Chuyển giường
+                </Menu.Item>
+              </Menu>
+            }
+          >
+            <Button type="default">
+              Thêm <DownOutlined />
+            </Button>
+          </Dropdown>
+          <Button
+            type="primary"
+            danger
+            icon={<CheckCircleOutlined />}
+            onClick={() => showDischargeModal(record.admission_id)}
+          >
+            Xuất viện
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+  
   const chiPhiColumns = [
     {
       title: 'Loại chi phí',
@@ -868,8 +1153,32 @@ const columns = [
           setChiDinhThuocList([]);
           setChiPhiList([]);
           setTongChiPhi(null);
+          setKhachHangData({});
         }}
-        footer={null}
+        footer={[
+          <Button
+            key="print"
+            type="primary"
+            onClick={generatePDF}
+            loading={pdfGenerating}
+          >
+            In PDF
+          </Button>,
+          <Button
+            key="close"
+            onClick={() => {
+              setIsDetailsModalVisible(false);
+              setSelectedInpatient(null);
+              setDienBienList([]);
+              setChiDinhThuocList([]);
+              setChiPhiList([]);
+              setTongChiPhi(null);
+              setKhachHangData({});
+            }}
+          >
+            Đóng
+          </Button>,
+        ]}
         width={1000}
       >
         {selectedInpatient && (
@@ -878,6 +1187,9 @@ const columns = [
               <Descriptions bordered column={1}>
                 <Descriptions.Item label="Họ tên">{selectedInpatient.ho_ten}</Descriptions.Item>
                 <Descriptions.Item label="Số điện thoại">{selectedInpatient.so_dien_thoai}</Descriptions.Item>
+                <Descriptions.Item label="Giới tính">{khachHangData.gioi_tinh || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Năm sinh">{khachHangData.ngay_sinh ? dayjs(khachHangData.ngay_sinh).format('YYYY') : 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Địa chỉ">{khachHangData.dia_chi || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Triệu chứng">{selectedInpatient.trieu_chung}</Descriptions.Item>
                 <Descriptions.Item label="Kết luận">{selectedInpatient.ket_qua_kham || 'Chưa có'}</Descriptions.Item>
                 <Descriptions.Item label="Khoa">{selectedInpatient.khoa_name}</Descriptions.Item>
@@ -943,6 +1255,8 @@ const columns = [
                         <Descriptions.Item label="Số lượng">{item.so_luong} {item.don_vi}</Descriptions.Item>
                         <Descriptions.Item label="Liều lượng">{item.lieu_luong}</Descriptions.Item>
                         <Descriptions.Item label="Tần suất">{item.tan_suat}</Descriptions.Item>
+                        <Descriptions.Item label="Đơn giá">{formatCurrency(item.gia)}</Descriptions.Item>
+                        <Descriptions.Item label="Thành tiền">{formatCurrency(item.so_luong * item.gia)}</Descriptions.Item>
                       </Descriptions>
                     </List.Item>
                   )}
@@ -1025,7 +1339,6 @@ const columns = [
         title="Cập nhật diễn biến bệnh"
         open={isDienBienModalVisible}
         onOk={async () => {
-          console.log('Modal onOk triggered');
           try {
             await dienBienForm.validateFields();
             dienBienForm.submit();
@@ -1035,7 +1348,6 @@ const columns = [
           }
         }}
         onCancel={() => {
-          console.log('Modal onCancel triggered');
           setIsDienBienModalVisible(false);
           dienBienForm.resetFields();
         }}
@@ -1046,7 +1358,6 @@ const columns = [
         <Form
           form={dienBienForm}
           onFinish={(values) => {
-            console.log('Form onFinish triggered with values:', values);
             handleAddDienBien(values);
           }}
           layout="vertical"
@@ -1096,7 +1407,6 @@ const columns = [
         open={isChiDinhThuocModalVisible}
         width="40%"
         onOk={async () => {
-          console.log('Modal chiDinhThuoc onOk triggered');
           try {
             await chiDinhThuocForm.validateFields();
             chiDinhThuocForm.submit();
@@ -1106,7 +1416,6 @@ const columns = [
           }
         }}
         onCancel={() => {
-          console.log('Modal chiDinhThuoc onCancel triggered');
           setIsChiDinhThuocModalVisible(false);
           chiDinhThuocForm.resetFields();
         }}
@@ -1117,7 +1426,6 @@ const columns = [
         <Form
           form={chiDinhThuocForm}
           onFinish={(values) => {
-            console.log('Form chiDinhThuoc onFinish triggered with values:', values);
             handleAddChiDinhThuoc(values);
           }}
           layout="vertical"
@@ -1141,7 +1449,7 @@ const columns = [
                             {Array.isArray(khoList) && khoList.length > 0 ? (
                               khoList.map((thuoc) => (
                                 <Option key={thuoc.kho_id} value={thuoc.kho_id}>
-                                  {thuoc.ten_san_pham} ({thuoc.don_vi_tinh})
+                                  {thuoc.ten_san_pham} ({thuoc.don_vi_tinh}) - {formatCurrency(parseFloat(thuoc.don_gia))}
                                 </Option>
                               ))
                             ) : (
@@ -1241,7 +1549,6 @@ const columns = [
         <Form
           form={chiPhiForm}
           onFinish={(values) => {
-            console.log('Form chiPhi onFinish triggered with values:', values);
             handleAddChiPhi(values);
           }}
           layout="vertical"

@@ -607,7 +607,9 @@ const showDonThuocModal = async (appointmentId: number) => {
     let khachHangData: KhachHang = {};
     try {
       const khachHangResponse = await axios.get(`http://localhost:9999/api/user/getthongtinbyId/${appt.khach_hang_id}`);
-      khachHangData = khachHangResponse.data.data || khachHangResponse.data || {};
+      // Dữ liệu trả về là một mảng, lấy phần tử đầu tiên nếu tồn tại
+      const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
+      khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
       console.log('Khach hang data from /api/user/getthongtinbyId:', khachHangData);
     } catch (error) {
       console.error('Error fetching khach hang data:', error);
@@ -617,12 +619,10 @@ const showDonThuocModal = async (appointmentId: number) => {
     // Kết hợp thông tin từ Appointment và thông tin khách hàng
     const updatedAppt = {
       ...appt,
-      // Ưu tiên thông tin từ API khách hàng, fallback về thông tin trong appointment
-      gioi_tinh: khachHangData.gioi_tinh || appt.gioi_tinh || 'N/A',
-      ngay_sinh: khachHangData.ngay_sinh || appt.ngay_sinh || undefined,
-      dia_chi: khachHangData.dia_chi || appt.dia_chi || 'N/A',
-      // Có thể thêm các trường khác từ khachHangData nếu cần
-
+      // Chỉ lấy thông tin từ khachHangData, không cần fallback về appt vì appt không có các trường này
+      gioi_tinh: khachHangData.gioi_tinh || 'N/A',
+      ngay_sinh: khachHangData.ngay_sinh || undefined,
+      dia_chi: khachHangData.dia_chi || 'N/A',
     };
     console.log('Updated appointment with khach hang data:', updatedAppt);
     setSelectedAppointment(updatedAppt);
@@ -661,15 +661,19 @@ const showDonThuocModal = async (appointmentId: number) => {
 
 // Hàm helper để format thông tin khách hàng một cách an toàn
 const formatKhachHangInfo = (selectedAppointment: any) => {
+  const gioiTinh = selectedAppointment?.gioi_tinh
+    ? selectedAppointment.gioi_tinh === 'male' ? 'nam' : selectedAppointment.gioi_tinh === 'female' ? 'nữ' : selectedAppointment.gioi_tinh
+    : 'N/A';
   return {
+    
     hoTen: selectedAppointment?.ho_ten || 'N/A',
-    gioiTinh: selectedAppointment?.gioi_tinh || 'N/A',
+    gioiTinh: gioiTinh,
     namSinh: selectedAppointment?.ngay_sinh 
       ? dayjs(selectedAppointment.ngay_sinh).format('YYYY') 
       : 'N/A',
     soDienThoai: selectedAppointment?.so_dien_thoai || 'N/A',
     diaChi: selectedAppointment?.dia_chi || 'N/A',
-    chanDoan: selectedAppointment?.trieu_chung || 'Chưa xác định',
+    ket_qua_kham: selectedAppointment?.ket_qua_kham || 'Chưa xác định',
   };
 };
 
@@ -783,8 +787,8 @@ const generatePDF = () => {
       <div style="text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
           <div style="text-align: center;">
-            <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">BỆNH VIỆN ĐA KHOA TỈNH</div>
-            <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA KHÁM BỆNH</div>
+            <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">BỆNH VIỆN KHOÁI CHÂU</div>
+            <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA ${khoaName}</div>
           </div>
         </div>
         <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">ĐƠN THUỐC</div>
@@ -808,7 +812,7 @@ const generatePDF = () => {
             <td style="padding: 5px 0;"><strong>Ngày khám:</strong> ${dayjs().format('DD/MM/YYYY')}</td>
           </tr>
           <tr>
-            <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.chanDoan}</td>
+            <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham}</td>
           </tr>
         </table>
       </div>
