@@ -255,6 +255,15 @@ const items2 = [
       { key: '1', label: <Link to="/StatisticsPage">Thống kê</Link> },
     ],
   },
+  {
+    key: 'sub23',
+    icon: <IdcardOutlined />,
+    label: 'Xét nghiệm',
+    children: [
+      { key: '1', label: <Link to="/dichvu">Xét nghiệm</Link> },
+    ],
+  },
+
 ];
 
 const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ children, onLogout }) => {
@@ -456,39 +465,42 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
     disconnectSocket();
   };
 
-  const filteredMenuItems = items2
-    .filter((item) => {
-      if (role === 'admin') {
-        return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
-      } else if (role === 'bacsi') {
-        if (userData?.khoa_id && parseInt(userData.khoa_id) === 20) {
-          return ['sub20', 'sub2', 'sub8'].includes(item.key);
-        } else {
-          const baseItems = ['sub2', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub18', 'sub19', 'sub22'];
-          return baseItems.includes(item.key);
-        }
-      } else if (role === 'letan') {
-        return ['sub15', 'sub21'].includes(item.key);
+const filteredMenuItems = items2
+  .filter((item) => {
+    if (role === 'admin') {
+      return ['sub4', 'sub1', 'sub2', 'sub3', 'sub5', 'sub7', 'sub8', 'sub9', 'sub10', 'sub11'].includes(item.key);
+    } else if (role === 'bacsi') {
+      if (userData?.khoa_id && parseInt(userData.khoa_id) === 20) {
+        return ['sub20', 'sub2', 'sub8'].includes(item.key);
+      } else {
+        const baseItems = ['sub2', 'sub8', 'sub12', 'sub13', 'sub14', 'sub16', 'sub18', 'sub19', 'sub22'];
+        return baseItems.includes(item.key);
       }
-      return false;
-    })
-    .map((item) => {
-      if (role === 'bacsi') {
-        if (item.key === 'sub2') {
-          return {
-            ...item,
-            children: item.children.filter((child) => child.key === '1'),
-          };
-        } else if (item.key === 'sub8') {
-          return {
-            ...item,
-            children: item.children.filter((child) => child.key === '2'),
-          };
-        }
+    } else if (role && ['bac_si_xet_nghiem', 'bac_si_sieu_am', 'bac_si_chup_chieu'].includes(role)) {
+      // Chỉ hiển thị menu Xét nghiệm cho các vai trò liên quan
+      const baseItems = [ 'sub23'];
+      return baseItems.includes(item.key);
+    } else if (role === 'letan') {
+      return ['sub15', 'sub21'].includes(item.key);
+    }
+    return false;
+  })
+  .map((item) => {
+    if (role && ['bacsi', 'bac_si_xet_nghiem', 'bac_si_sieu_am', 'bac_si_chup_chieu'].includes(role)) {
+      if (item.key === 'sub2') {
+        return {
+          ...item,
+          children: item.children.filter((child) => child.key === '1'),
+        };
+      } else if (item.key === 'sub8') {
+        return {
+          ...item,
+          children: item.children.filter((child) => child.key === '2'),
+        };
       }
-      return item;
-    });
-
+    }
+    return item;
+  });
   const notificationContent = (
     <div>
       {socketError && (
@@ -552,7 +564,7 @@ const Admin: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ 
           />
         </div>
         <div>
-          <h1 style={{ fontFamily: 'none', color: '#ffff' }}>Hệ thống quản trị bệnh viện Khoái Châu</h1>
+          <h1 style={{ fontFamily: 'none', color: '#ffff', marginBottom: '-10px' }}>Hệ thống quản trị bệnh viện Khoái Châu</h1>
         </div>
         <Menu
           theme="dark"

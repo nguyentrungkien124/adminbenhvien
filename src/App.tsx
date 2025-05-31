@@ -52,6 +52,8 @@ import Lichhenkham from './pages/lichhenkham/lichhenkham';
 import Khamlamsan from './pages/Khamlamsan/Khamlamsan';
 import Xacnhanthanhtoanbyletan from './pages/Letan/xacnhanthanhbyletan';
 import StatisticsPage from './pages/thongke1/thongke';
+
+import XetNghiemKhoa from './pages/dichvuxetnghiep/dichvuxetnghiep';
 // import AdminPermission from './Components/AdminPermission';
 
 function App() {
@@ -131,6 +133,7 @@ function App() {
                         <Route path="/Khamlamsan" element={<Khamlamsan />} />
                          <Route path="/Xacnhanthanhtoanbyletan" element={<Xacnhanthanhtoanbyletan />} />
                          <Route path="/StatisticsPage" element={<StatisticsPage />} />
+                         <Route path="/dichvu" element={<XetNghiemKhoa />} />
                          {/* <Route path="/AdminPermission" element={<AdminPermission />} /> */}
                         {/* Điều hướng mặc định đến trang chính nếu đã đăng nhập */}
                     </Routes>
