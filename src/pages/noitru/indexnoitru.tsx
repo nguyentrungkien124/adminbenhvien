@@ -78,6 +78,14 @@ interface Bed {
   id: number;
   room_id: number;
   ma_giuong: string;
+  room_name: string;
+  bed_code: string;
+  bed_status?: string;
+  bed_price?: string;
+  patient_name?: string | null;
+  admission_id?: number | null; // Có thể thêm nếu API trả về
+  ngay_nhap_vien?: string | null; // Có thể thêm nếu API trả về
+  ngay_xuat_vien?: string | null; // Có thể thêm nếu API trả về
 }
 
 interface InpatientStats {
@@ -131,6 +139,7 @@ interface TongChiPhi {
   co_bao_hiem: boolean;
   gia_kham: number;
   trang_thai_thanh_toan: string;
+  chi_phi_xet_nghiem: number; // Thêm thuộc tính
 }
 
 interface KhachHang {
@@ -193,63 +202,82 @@ const IndexNoitru: React.FC = () => {
     fetchKhoaName();
   }, [khoaId]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [inpatientsRes, statsRes, roomsRes, bedsRes, khoRes] = await Promise.all([
-          axios.get(`http://localhost:9999/api/noitru/getdsNoitru?khoa_id=${khoaId}`),
-          axios.get(`http://localhost:9999/api/noitru/getThongkenoitru?khoa_id=${khoaId}`),
-          axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
-          axios.get(`http://localhost:9999/api/phongbenh/beds?khoa_id=${khoaId}&trang_thai=trong`),
-          axios.get(`http://localhost:9999/api/noitru/kho`),
-        ]);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [inpatientsRes, statsRes, roomsRes, bedsWithPatientsRes, khoRes] = await Promise.all([
+        axios.get(`http://localhost:9999/api/noitru/getdsNoitru?khoa_id=${khoaId}`),
+        axios.get(`http://localhost:9999/api/noitru/getThongkenoitru?khoa_id=${khoaId}`),
+        axios.get(`http://localhost:9999/api/phongbenh/rooms?khoa_id=${khoaId}`),
+        axios.get(`http://localhost:9999/api/phongbenh/beds-with-patients?khoa_id=${khoaId}`),
+        axios.get(`http://localhost:9999/api/noitru/kho`),
+      ]);
 
-        setInpatients(inpatientsRes.data.data || []);
-        setFilteredInpatients(inpatientsRes.data.data || []);
-        setStats(statsRes.data.data || { total_inpatients: 0, beds_in_use: 0, beds_available: 0 });
+      const fetchedInpatients = inpatientsRes.data.data || [];
+      setInpatients(fetchedInpatients);
+      setFilteredInpatients(fetchedInpatients);
 
-        const fetchedRooms = roomsRes.data.map((room: any) => ({
-          id: room.id,
-          ten_phong: room.ten_phong,
-        }));
-        setRooms(fetchedRooms || []);
+      const fetchedRooms = roomsRes.data.map((room: any) => ({
+        id: room.id,
+        ten_phong: room.ten_phong,
+      }));
+      setRooms(fetchedRooms || []);
 
-        const fetchedBeds = bedsRes.data.map((bed: any) => ({
-          id: bed.id,
-          room_id: bed.room_id,
-          ma_giuong: bed.ma_giuong,
-        }));
-        setBeds(fetchedBeds || []);
+      // Xử lý dữ liệu từ API beds-with-patients
+      const allBeds = bedsWithPatientsRes.data.map((bed: any) => ({
+        bed_id: bed.bed_id,
+        room_id: bed.room_id,
+        room_name: bed.room_name,
+        bed_code: bed.bed_code,
+        bed_status: bed.bed_status,
+        bed_price: bed.bed_price,
+        patient_name: bed.patient_name,
+      }));
 
-        let khoData: Kho[] = [];
-        if (Array.isArray(khoRes.data.data)) {
-          khoData = khoRes.data.data;
-        } else if (khoRes.data.data && typeof khoRes.data.data === 'object') {
-          khoData = [khoRes.data.data];
-        }
-        setKhoList(khoData);
+      // Lọc giường trống (bed_status = 'trong' hoặc patient_name = 'Trống')
+      const fetchedBeds = allBeds.filter((bed: Bed) => bed.bed_status === 'trong' || bed.patient_name === 'Trống');
+      setBeds(fetchedBeds || []);
 
-        if (inpatientsRes.data.data.length === 0) {
-          message.info('Không có bệnh nhân nội trú trong khoa');
-        }
-        if (!khoData.length) {
-          message.warning('Không có thuốc khả dụng trong kho');
-        }
-      } catch (error: any) {
-        console.error('Error fetching data:', error);
-        message.error(error.response?.data?.message || 'Không thể tải dữ liệu');
-      } finally {
-        setLoading(false);
+      // Tính toán số giường đã sử dụng (bed_status = 'da_su_dung' và patient_name khác 'Trống')
+      const bedsInUse = allBeds.filter((bed: Bed) => bed.bed_status === 'da_su_dung' && bed.patient_name !== 'Trống').length;
+      const bedsAvailable = allBeds.filter((bed: Bed) => bed.bed_status === 'trong' || bed.patient_name === 'Trống').length;
+
+      let khoData: Kho[] = [];
+      if (Array.isArray(khoRes.data.data)) {
+        khoData = khoRes.data.data;
+      } else if (khoRes.data.data && typeof khoRes.data.data === 'object') {
+        khoData = [khoRes.data.data];
       }
-    };
+      setKhoList(khoData);
 
-    if (khoaId) {
-      fetchData();
-    } else {
-      message.error('Không tìm thấy thông tin khoa. Vui lòng đăng nhập lại.');
+      // Cập nhật stats
+      setStats({
+        total_inpatients: statsRes.data.data?.total_inpatients || fetchedInpatients.length,
+        beds_in_use: bedsInUse,
+        beds_available: bedsAvailable,
+      });
+
+      if (fetchedInpatients.length === 0) {
+        message.info('Không có bệnh nhân nội trú trong khoa');
+      }
+      if (!khoData.length) {
+        message.warning('Không có thuốc khả dụng trong kho');
+      }
+    } catch (error: any) {
+      console.error('Error fetching data:', error);
+      message.error(error.response?.data?.message || 'Không thể tải dữ liệu');
+    } finally {
+      setLoading(false);
     }
-  }, [khoaId]);
+  };
+
+  if (khoaId) {
+    fetchData();
+  } else {
+    message.error('Không tìm thấy thông tin khoa. Vui lòng đăng nhập lại.');
+  }
+}, [khoaId]);
 
   useEffect(() => {
     let filtered = inpatients;
@@ -330,48 +358,65 @@ const IndexNoitru: React.FC = () => {
     setIsTransferBedModalVisible(true);
   };
 
-  const showDetailsModal = async (inpatient: Inpatient) => {
+const showDetailsModal = async (inpatient: Inpatient) => {
+  try {
+    setLoading(true);
+    const [dienBienResponse, chiDinhThuocResponse, chiPhiResponse, tongChiPhiResponse] = await Promise.all([
+      axios.get(`http://localhost:9999/api/noitru/dien-bien/${inpatient.admission_id}`),
+      axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}?null`),
+      axios.get(`http://localhost:9999/api/noitru/chi-phi/${inpatient.admission_id}`),
+      axios.get(`http://localhost:9999/api/noitru/tong-chi-phi/${inpatient.admission_id}`),
+    ]);
+
+    // Log dữ liệu để kiểm tra
+    console.log('DienBien Response:', dienBienResponse.data);
+    console.log('ChiDinhThuoc Response:', chiDinhThuocResponse.data);
+    console.log('ChiPhi Response:', chiPhiResponse.data);
+    console.log('TongChiPhi Response:', tongChiPhiResponse.data);
+
+    let khachHangData: KhachHang = {};
     try {
-      setLoading(true);
-      const [dienBienResponse, chiDinhThuocResponse, chiPhiResponse, tongChiPhiResponse] = await Promise.all([
-        axios.get(`http://localhost:9999/api/noitru/dien-bien/${inpatient.admission_id}`),
-        axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/${inpatient.admission_id}?null`),
-        axios.get(`http://localhost:9999/api/noitru/chi-phi/${inpatient.admission_id}`),
-        axios.get(`http://localhost:9999/api/noitru/tong-chi-phi/${inpatient.admission_id}`),
-      ]);
-
-      let khachHangData: KhachHang = {};
-      try {
-        const khachHangResponse = await axios.get(`http://localhost:9999/api/user/getthongtinbyId/${inpatient.khach_hang_id}`);
-        const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
-        khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
-      } catch (error) {
-        console.error('Error fetching khach hang data:', error);
-        message.warning('Không thể lấy thông tin khách hàng. Một số thông tin có thể không hiển thị.');
-      }
-
-      const updatedChiDinhThuocList = (chiDinhThuocResponse.data.data || []).map((thuoc: ChiDinhThuoc) => {
-        const khoItem = khoList.find((kho) => kho.kho_id === thuoc.kho_id);
-        return {
-          ...thuoc,
-          gia: khoItem ? parseFloat(khoItem.don_gia) : 0,
-        };
-      });
-
-      setSelectedInpatient(inpatient);
-      setDienBienList(dienBienResponse.data.data || []);
-      setChiDinhThuocList(updatedChiDinhThuocList);
-      setChiPhiList(chiPhiResponse.data.data || []);
-      setTongChiPhi(tongChiPhiResponse.data.data || null);
-      setKhachHangData(khachHangData);
-      setIsDetailsModalVisible(true);
-    } catch (error: any) {
-      console.error('Error fetching details:', error);
-      message.error(error.response?.data?.message || 'Không thể tải chi tiết');
-    } finally {
-      setLoading(false);
+      const khachHangResponse = await axios.get(`http://localhost:9999/api/user/getthongtinbyId/${inpatient.khach_hang_id}`);
+      const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
+      khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
+    } catch (error) {
+      console.error('Error fetching khach hang data:', error);
+      message.warning('Không thể lấy thông tin khách hàng. Một số thông tin có thể không hiển thị.');
     }
-  };
+
+    const updatedChiDinhThuocList = (chiDinhThuocResponse.data.data || []).map((thuoc: ChiDinhThuoc) => {
+      const khoItem = khoList.find((kho) => kho.kho_id === thuoc.kho_id);
+      return {
+        ...thuoc,
+        gia: khoItem ? parseFloat(khoItem.don_gia) : 0,
+      };
+    });
+
+    const hasRequiredData =
+      updatedChiDinhThuocList.length > 0 &&
+      chiPhiResponse.data.data &&
+      chiPhiResponse.data.data.length > 0 &&
+      tongChiPhiResponse.data.data;
+
+    if (!hasRequiredData) {
+      message.error('Không đủ dữ liệu để hiển thị chi tiết. Vui lòng kiểm tra lại thông tin bệnh nhân.');
+      return;
+    }
+
+    setSelectedInpatient(inpatient);
+    setDienBienList(dienBienResponse.data.data || []);
+    setChiDinhThuocList(updatedChiDinhThuocList);
+    setChiPhiList(chiPhiResponse.data.data || []);
+    setTongChiPhi(tongChiPhiResponse.data.data || null);
+    setKhachHangData(khachHangData);
+    setIsDetailsModalVisible(true);
+  } catch (error: any) {
+    console.error('Error fetching details:', error);
+    message.error(error.response?.data?.message || 'Không thể tải chi tiết');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const showDienBienModal = (admissionId: number) => {
     setSelectedAdmissionId(admissionId);
@@ -529,243 +574,289 @@ const IndexNoitru: React.FC = () => {
     };
   };
 
-  const generatePDF = () => {
-    if (!selectedInpatient || !chiDinhThuocList.length || !tongChiPhi || !chiPhiList) {
-      message.error('Không thể tạo PDF - Thiếu thông tin cần thiết');
-      return;
-    }
-    
-    const totalMedicineCost = chiDinhThuocList.reduce((sum, thuoc) => sum + (thuoc.so_luong * thuoc.gia), 0);
-    try {
-      setPdfGenerating(true);
+const generatePDF = () => {
+  if (!selectedInpatient || !tongChiPhi) {
+    message.error('Không thể tạo PDF - Thiếu thông tin bệnh nhân hoặc tổng chi phí');
+    return;
+  }
 
-      const khachHangInfo = formatKhachHangInfo(selectedInpatient);
-      const chiPhiGiuong = chiPhiList.find((chiPhi) => chiPhi.loai_chi_phi === 'giuong');
-      const ngayXuatVien = selectedInpatient.ngay_xuat_vien
-        ? dayjs(selectedInpatient.ngay_xuat_vien).format('DD/MM/YYYY')
-        : 'Chưa xuất viện';
-      const currentDate = dayjs().format('DD/MM/YYYY');
-      const currentTime = dayjs().format('HH:mm');
+  const totalMedicineCost = chiDinhThuocList.reduce((sum, thuoc) => sum + (thuoc.so_luong * thuoc.gia), 0);
+  try {
+    setPdfGenerating(true);
 
-      const element = document.createElement('div');
-      element.style.cssText = `
-        width: 210mm;
-        min-height: 297mm;
-        padding: 15mm;
-        font-family: 'Times New Roman', serif;
-        background: white;
-        margin: 0 auto;
-        box-sizing: border-box;
-        line-height: 1.5;
-        font-size: 14px;
-      `;
-      
-      element.innerHTML = `
-        <!-- Header bệnh viện -->
-        <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">BỆNH VIỆN ĐA KHOA TỈNH</div>
-          <div style="font-size: 16px; margin-bottom: 5px;">Địa chỉ: Số 123, Đường ABC, Thành phố XYZ</div>
-          <div style="font-size: 16px; margin-bottom: 5px;">Điện thoại: 0123.456.789 - Fax: 0123.456.789</div>
-          <div style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 10px 0; color: #1a5276;">
-            HÓA ĐƠN THANH TOÁN DỊCH VỤ Y TẾ
-          </div>
-          <div style="font-size: 14px;">Số hóa đơn: ${selectedInpatient.admission_id || 'N/A'} - Ngày: ${currentDate}</div>
+    const khachHangInfo = formatKhachHangInfo(selectedInpatient);
+    const chiPhiGiuong = chiPhiList.find((chiPhi) => chiPhi.loai_chi_phi === 'giuong');
+    const ngayXuatVien = selectedInpatient.ngay_xuat_vien
+      ? dayjs(selectedInpatient.ngay_xuat_vien).format('DD/MM/YYYY')
+      : 'Chưa xuất viện';
+    const currentDate = dayjs().format('DD/MM/YYYY');
+    const currentTime = dayjs().format('HH:mm');
+
+    // Lọc danh sách xét nghiệm từ chiPhiList
+    const xetNghiemList = chiPhiList.filter((chiPhi) => chiPhi.loai_chi_phi === 'xet_nghiem');
+    const totalTestCost = xetNghiemList.reduce((sum, xetNghiem) => sum + xetNghiem.so_tien, 0);
+
+    const element = document.createElement('div');
+    element.style.cssText = `
+      width: 297mm; /* Chiều rộng A3 */
+      padding: 15mm;
+      font-family: 'Times New Roman', serif;
+      background: white;
+      margin: 0 auto;
+      box-sizing: border-box;
+      line-height: 1.5;
+      font-size: 14px;
+      overflow: visible;
+    `;
+
+    element.innerHTML = `
+      <!-- Header bệnh viện -->
+      <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">BỆNH VIỆN KHOÁI CHÂU</div>
+        <div style="font-size: 16px; margin-bottom: 5px;">Địa chỉ: Ngã tư huyện Khoái Châu - Hưng yên</div>
+        <div style="font-size: 16px; margin-bottom: 5px;">Điện thoại: 0123.456.789 - Fax: 0123.456.789</div>
+        <div style="font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 10px 0; color: #1a5276;">
+          HÓA ĐƠN THANH TOÁN DỊCH VỤ Y TẾ
         </div>
+        <div style="font-size: 14px;">Số hóa đơn: ${selectedInpatient.admission_id || 'N/A'} - Ngày: ${currentDate}</div>
+      </div>
 
-        <!-- Thông tin bệnh nhân -->
-        <div style="margin-bottom: 20px;">
-          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
-            THÔNG TIN BỆNH NHÂN
-          </div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tr>
-              <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
-              <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
-              <td style="padding: 5px 0;"><strong>Số điện thoại:</strong> ${khachHangInfo.soDienThoai}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
-              <td style="padding: 5px 0;"><strong>Mã bệnh nhân:</strong> ${selectedInpatient.patient_id || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Ngày nhập viện:</strong> ${dayjs(selectedInpatient.ngay_nhap_vien).format('DD/MM/YYYY')}</td>
-              <td style="padding: 5px 0;"><strong>Ngày xuất viện:</strong> ${ngayXuatVien}</td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham || 'Không có thông tin'}</td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 5px 0;"><strong>Khoa điều trị:</strong> Nội trú</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Giường:</strong> ${selectedInpatient.bed_code || 'Giường 01'}</td>
-              <td style="padding: 5px 0;"><strong>Bác sĩ điều trị:</strong> ${selectedInpatient.doctor_name || 'Không có thông tin'}</td>
-            </tr>
-          </table>
+      <!-- Thông tin bệnh nhân -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+          THÔNG TIN BỆNH NHÂN
         </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
+            <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
+            <td style="padding: 5px 0;"><strong>Số điện thoại:</strong> ${khachHangInfo.soDienThoai}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
+            <td style="padding: 5px 0;"><strong>Mã bệnh nhân:</strong> ${selectedInpatient.patient_id || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Ngày nhập viện:</strong> ${dayjs(selectedInpatient.ngay_nhap_vien).format('DD/MM/YYYY')}</td>
+            <td style="padding: 5px 0;"><strong>Ngày xuất viện:</strong> ${ngayXuatVien}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham || 'Không có thông tin'}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 5px 0;"><strong>Khoa điều trị:</strong> Nội trú</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Giường:</strong> ${selectedInpatient.bed_code || 'Giường 01'}</td>
+            
+          </tr>
+        </table>
+      </div>
 
-        <!-- Danh sách dịch vụ -->
-        <div style="margin-bottom: 20px;">
-          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
-            DANH SÁCH DỊCH VỤ Y TẾ
-          </div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #000;">
-            <thead>
-              <tr style="background-color: #f2f2f2;">
-                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 5%;">STT</th>
-                <th style="border: 1px solid #000; padding: 8px; text-align: left; width: 45%;">Tên dịch vụ/Thuốc</th>
-                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
-                <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
-                <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Đơn giá (VNĐ)</th>
-                <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Thành tiền (VNĐ)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dịch vụ khám -->
+      <!-- Danh sách dịch vụ -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+          DANH SÁCH DỊCH VỤ Y TẾ
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #000;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 5%;">STT</th>
+              <th style="border: 1px solid #000; padding: 8px; text-align: left; width: 45%;">Tên dịch vụ/Thuốc</th>
+              <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
+              <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
+              <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Đơn giá (VNĐ)</th>
+              <th style="border: 1px solid #000; padding: 8px; text-align: right; width: 15%;">Thành tiền (VNĐ)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Dịch vụ khám -->
+            <tr>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
+              <td style="border: 1px solid #000; padding: 8px;">Phí khám bệnh</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">Lần</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+            </tr>
+            
+            <!-- Dịch vụ giường -->
+            ${chiPhiGiuong ? `
+            <tr>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">2</td>
+              <td style="border: 1px solid #000; padding: 8px;">Phí giường bệnh</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">Ngày</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: center;">${calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien)}</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien)}</td>
+              <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien * calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien))}</td>
+            </tr>
+            ` : ''}
+
+            <!-- Dịch vụ xét nghiệm -->
+            ${xetNghiemList.length > 0 ? xetNghiemList.map((xetNghiem, index) => `
               <tr>
-                <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
-                <td style="border: 1px solid #000; padding: 8px;">Phí khám bệnh</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + (chiPhiGiuong ? 3 : 2)}</td>
+                <td style="border: 1px solid #000; padding: 8px;">${xetNghiem.ghi_chu || 'Xét nghiệm'}</td>
                 <td style="border: 1px solid #000; padding: 8px; text-align: center;">Lần</td>
                 <td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(xetNghiem.so_tien)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(xetNghiem.so_tien)}</td>
               </tr>
-              
-              <!-- Dịch vụ giường -->
-              ${chiPhiGiuong ? `
+            `).join('') : ''}
+
+            <!-- Danh sách thuốc -->
+            ${chiDinhThuocList.length > 0 ? chiDinhThuocList.map((thuoc, index) => `
               <tr>
-                <td style="border: 1px solid #000; padding: 8px; text-align: center;">2</td>
-                <td style="border: 1px solid #000; padding: 8px;">Phí giường bệnh</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: center;">Ngày</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien)}</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien)}</td>
-                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien * calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien))}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + (chiPhiGiuong ? 4 : 3) + (xetNghiemList.length)}</td>
+                <td style="border: 1px solid #000; padding: 8px;">${thuoc.ten_thuoc}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.don_vi}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.so_luong}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.gia)}</td>
+                <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.so_luong * thuoc.gia)}</td>
               </tr>
-              ` : ''}
-              
-              <!-- Danh sách thuốc -->
-              ${chiDinhThuocList.map((thuoc, index) => `
-                <tr>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${index + 3}</td>
-                  <td style="border: 1px solid #000; padding: 8px;">${thuoc.ten_thuoc}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.don_vi}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: center;">${thuoc.so_luong}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.gia)}</td>
-                  <td style="border: 1px solid #000; padding: 8px; text-align: right;">${formatCurrency(thuoc.so_luong * thuoc.gia)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Tổng chi phí -->
-        <div style="margin-bottom: 20px; font-size: 14px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px 0; width: 80%; text-align: right;"><strong>Tổng cộng:</strong></td>
-              <td style="padding: 8px 0; text-align: right; font-weight: bold; border-top: 1px solid #000; border-bottom: 1px solid #000;">
-                ${formatCurrency(tongChiPhi.tong_tien)}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; text-align: right;"><strong>Giảm trừ (nếu có):</strong></td>
-              <td style="padding: 8px 0; text-align: right;">${formatCurrency(0)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; text-align: right;"><strong>Phải thanh toán:</strong></td>
-              <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #c0392b;">
-                ${formatCurrency(tongChiPhi.tong_tien)}
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Hướng dẫn sử dụng thuốc -->
-        <div style="margin-bottom: 20px;">
-          <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
-            HƯỚNG DẪN SỬ DỤNG THUỐC
-          </div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            ${chiDinhThuocList.map((thuoc, index) => `
+            `).join('') : `
               <tr>
-                <td style="padding: 5px 0; width: 30%;"><strong>${index + 1}. ${thuoc.ten_thuoc}:</strong></td>
-                <td style="padding: 5px 0;">
-                  <div><strong>Liều dùng:</strong> ${thuoc.lieu_luong}</div>
-                  <div><strong>Cách dùng:</strong> ${thuoc.tan_suat}</div>
-                  <div><strong>Ghi chú:</strong> ${thuoc.ghi_chu || 'Không có'}</div>
-                </td>
+                <td colspan="6" style="border: 1px solid #000; padding: 8px; text-align: center;">Chưa có chỉ định thuốc</td>
               </tr>
-            `).join('')}
-          </table>
+            `}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tổng chi phí -->
+      <div style="margin-bottom: 20px; font-size: 14px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; width: 70%; text-align: right;"><strong>Phí khám bệnh:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(tongChiPhi.gia_kham)}</td>
+          </tr>
+          ${
+            chiPhiGiuong
+              ? `
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Phí giường bệnh:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(chiPhiGiuong.so_tien * calculateDays(selectedInpatient.ngay_nhap_vien, selectedInpatient.ngay_xuat_vien))}</td>
+          </tr>
+          `
+              : ''
+          }
+          ${
+            chiDinhThuocList.length > 0
+              ? `
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Tiền thuốc:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(totalMedicineCost)}</td>
+          </tr>
+          `
+              : ''
+          }
+          ${
+            xetNghiemList.length > 0
+              ? `
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Chi phí xét nghiệm/thăm dò:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(totalTestCost)}</td>
+          </tr>
+          `
+              : ''
+          }
+          <tr style="font-weight: bold;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Tổng cộng (giá gốc):</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(tongChiPhi.tong_tien)}</td>
+          </tr>
+          <tr style="color: #ff4d4f;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Giảm trừ (nếu có):</strong></td>
+            <td style="padding: 5px 0; text-align: right;">-${formatCurrency(tongChiPhi.co_bao_hiem ? tongChiPhi.tong_tien * 0.3 : 0)}</td>
+          </tr>
+          <tr style="font-weight: bold; color: #1890ff;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Phải thanh toán:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${formatCurrency(tongChiPhi.co_bao_hiem ? tongChiPhi.tong_tien * 0.7 : tongChiPhi.tong_tien)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Hướng dẫn sử dụng thuốc -->
+      ${
+        chiDinhThuocList.length > 0
+          ? `
+      <div style="margin-bottom: 20px; font-size: 12px; border: 1px solid #ddd; padding: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">HƯỚNG DẪN SỬ DỤNG THUỐC:</div>
+        <div>- Uống thuốc đúng liều lượng, đúng giờ theo chỉ định của bác sĩ</div>
+        <div>- Không tự ý ngưng thuốc khi chưa hết liệu trình</div>
+        <div>- Tái khám đúng hẹn hoặc khi có dấu hiệu bất thường</div>
+      </div>
+      `
+          : ''
+      }
+
+      <!-- Phần chữ ký -->
+      <div style="display: flex; justify-content: space-between; margin-top: 40px;">
+        <div style="text-align: center; width: 40%;">
+          <div style="font-style: italic;">Ngày ${currentDate}</div>
+          <div style="margin-top: 50px; font-weight: bold;">BỆNH NHÂN</div>
+          <div style="margin-top: 30px;">(Ký, ghi rõ họ tên)</div>
         </div>
-
-        <!-- Phần chữ ký -->
-        <div style="display: flex; justify-content: space-between; margin-top: 40px;">
-          <div style="text-align: center; width: 40%;">
-            <div style="font-style: italic;">Ngày ${currentDate}</div>
-            <div style="margin-top: 50px; font-weight: bold;">BỆNH NHÂN/KHÁCH HÀNG</div>
-            <div style="margin-top: 30px;">${khachHangInfo.hoTen}</div>
-          </div>
-          <div style="text-align: center; width: 40%;">
-            <div style="font-style: italic;">Ngày ${currentDate}</div>
-            <div style="margin-top: 50px; font-weight: bold;">NGƯỜI LẬP HÓA ĐƠN</div>
-            <div style="margin-top: 30px;">${selectedInpatient.doctor_name || 'Bác sĩ điều trị'}</div>
-          </div>
+        <div style="text-align: center; width: 40%;">
+          <div style="font-style: italic;">Ngày ${currentDate}</div>
+          <div style="margin-top: 50px; font-weight: bold;">NGƯỜI LẬP HÓA ĐƠN</div>
+          <div style="margin-top: 30px;">(Ký, ghi rõ họ tên)</div>
         </div>
+      </div>
 
-        <!-- Footer -->
-        <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #555;">
-          <div>Hóa đơn điện tử có giá trị thay thế hóa đơn giấy theo Thông tư 68/2019/TT-BTC</div>
-          <div>Quý khách vui lòng kiểm tra kỹ hóa đơn trước khi thanh toán</div>
-          <div>Mọi thắc mắc xin liên hệ phòng Kế toán - Bệnh viện Đa khoa Tỉnh</div>
-        </div>
-      `;
-      
-      document.body.appendChild(element);
+      <!-- Footer -->
+      <div style="text-align: center; margin-top: 240px; font-size: 12px; color: #555;">
+        <div>Hóa đơn điện tử có giá trị thay thế hóa đơn giấy theo Thông tư 68/2019/TT-BTC</div>
+        <div>Quý khách vui lòng kiểm tra kỹ hóa đơn trước khi thanh toán</div>
+        <div>Mọi thắc mắc xin liên hệ phòng Kế toán - Bệnh viện Đa khoa Tỉnh</div>
+      </div>
+    `;
 
-      html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 210 * 3.779527559,
-        height: element.offsetHeight * 3.779527559,
-      }).then((canvas) => {
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        const imgWidth = 210;
-        const imgHeight = canvas.height * imgWidth / canvas.width;
+    document.body.appendChild(element);
 
-        const doc = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
+    // Đảm bảo toàn bộ nội dung được chụp
+    html2canvas(element, {
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 297 * 3.779527559, // 297mm = 1122px ở 72dpi (A3 width)
+      height: element.scrollHeight * 3.779527559, // Sử dụng scrollHeight để lấy toàn bộ nội dung
+      windowHeight: document.documentElement.scrollHeight,
+    }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = 297; // 297mm (A3 width)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width; // Tính chiều cao dựa trên tỷ lệ
 
-        doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
-
-        const filename = `HoaDon_${selectedInpatient.admission_id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
-        doc.save(filename);
-        
-        message.success('Hóa đơn đã được tải xuống thành công');
-        
-        document.body.removeChild(element);
-      }).catch((error) => {
-        console.error('Lỗi khi chụp canvas:', error);
-        message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
-        document.body.removeChild(element);
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a3' // Sử dụng A3 (297 x 420 mm)
       });
 
-    } catch (error) {
-      console.error('Lỗi khi tạo PDF:', error);
-      message.error('Không thể tạo PDF. Vui lòng thử lại.');
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
+      doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
 
+      const filename = `HoaDon_${selectedInpatient.admission_id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+      doc.save(filename);
+
+      message.success('Hóa đơn đã được tải xuống thành công');
+
+      document.body.removeChild(element);
+    }).catch((error) => {
+      console.error('Lỗi khi chụp canvas:', error);
+      message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
+      document.body.removeChild(element);
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
   // Hàm hỗ trợ tính số ngày nằm viện
   function calculateDays(ngayNhapVien: string, ngayXuatVien: string | null) {
     if (!ngayXuatVien) return 1;

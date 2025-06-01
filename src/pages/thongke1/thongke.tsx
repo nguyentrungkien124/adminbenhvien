@@ -287,14 +287,16 @@ const StatisticsPage: React.FC = () => {
   };
 
   // Helper function to safely find stats
-  const findStat = (stats: any[], statType: string): number => {
-    if (!Array.isArray(stats)) {
-      console.warn(`Stats is not an array:`, stats);
-      return 0;
-    }
-    const stat = stats.find((stat) => stat?.stat_type === statType);
-    return stat?.value || 0;
-  };
+// Helper function to safely find stats and convert to integer
+const findStat = (stats: any[], statType: string): number => {
+  if (!Array.isArray(stats)) {
+    console.warn(`Stats is not an array:`, stats);
+    return 0;
+  }
+  const stat = stats.find((stat) => stat?.stat_type === statType);
+  const value = stat?.value || 0;
+  return parseInt(value.toString(), 10); // Chuyển đổi thành số nguyên
+};
 
   // Tìm số liệu tổng quan từ các API
   const totalPatients = findStat(patientStats, "total_patients");

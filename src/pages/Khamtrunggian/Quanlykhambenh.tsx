@@ -134,7 +134,13 @@ interface ChiDinhThuoc {
   ngay_chi_dinh: string;
   nguoi_chi_dinh: string;
 }
-
+interface CostData {
+  total_cost: number;
+  phi_kham: number;
+  tong_thuoc: number;
+  tong_xet_nghiem: number; // Thay vì tong_xet_nghiem, dùng tong_dich_vu theo thủ tục đã sửa
+  da_thanh_toan: boolean;
+}
 const Quanlykhambenh: React.FC = () => {
   const [form] = Form.useForm<FormInstance>();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -178,6 +184,7 @@ const Quanlykhambenh: React.FC = () => {
   const [khoaName, setKhoaName] = useState<string>('Không có khoa');
   const [testRequests, setTestRequests] = useState<any[]>([]);
   const [isTestRequestsModalVisible, setIsTestRequestsModalVisible] = useState<boolean>(false);
+  const [tongDichVu, setTongDichVu] = useState<number | null>(null);
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const khoaId = user.khoa_id;
   const bacSiId = user.bac_si_id;
@@ -202,57 +209,57 @@ const Quanlykhambenh: React.FC = () => {
     fetchKhoaName();
   }, [khoaId]);
 
-const fetchTestRequests = async (appointmentId: number) => {
-  try {
-    setLoading(true);
-    const [testRequestsResponse, khachHangResponse] = await Promise.all([
-      axios.get(`http://localhost:9999/api/dichvu/service-requests/by-appointment?appointment_id=${appointmentId}`),
-      axios.get(`http://localhost:9999/api/user/getthongtinbyId/${appointments.find((a) => a.id === appointmentId)?.khach_hang_id || 0}`),
-    ]);
+  const fetchTestRequests = async (appointmentId: number) => {
+    try {
+      setLoading(true);
+      const [testRequestsResponse, khachHangResponse] = await Promise.all([
+        axios.get(`http://localhost:9999/api/dichvu/service-requests/by-appointment?appointment_id=${appointmentId}`),
+        axios.get(`http://localhost:9999/api/user/getthongtinbyId/${appointments.find((a) => a.id === appointmentId)?.khach_hang_id || 0}`),
+      ]);
 
-    const testData = testRequestsResponse.data || [];
-    setTestRequests(Array.isArray(testData) ? testData : [testData]);
+      const testData = testRequestsResponse.data || [];
+      setTestRequests(Array.isArray(testData) ? testData : [testData]);
 
-    const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
-    const khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
+      const khachHangArray = khachHangResponse.data.data || khachHangResponse.data || [];
+      const khachHangData = Array.isArray(khachHangArray) && khachHangArray.length > 0 ? khachHangArray[0] : {};
 
-    const appt = appointments.find((a) => a.id === appointmentId) || null;
-    const updatedAppointment: Appointment = {
-      id: appt?.id || 0, // Đảm bảo id là number, mặc định 0 nếu không có
-      khach_hang_id: appt?.khach_hang_id || 0,
-      ho_ten: appt?.ho_ten || 'N/A',
-      so_dien_thoai: appt?.so_dien_thoai || 'N/A',
-      trieu_chung: appt?.trieu_chung || 'N/A',
-      khoa_id: appt?.khoa_id || 0,
-      khoa_name: appt?.khoa_name || 'N/A',
-      bac_si_id: appt?.bac_si_id || null,
-      status: appt?.status || 0,
-      source: appt?.source || 'N/A',
-      so_bao_hiem_y_te: appt?.so_bao_hiem_y_te || 'N/A',
-      bao_hiem_y_te: appt?.bao_hiem_y_te || null,
-      created_at: appt?.created_at || dayjs().format('YYYY-MM-DD'),
-      ket_qua_kham: appt?.ket_qua_kham || 'Chưa xác định',
-      chuyen_khoa_ghi_chu: appt?.chuyen_khoa_ghi_chu || null,
-      loai_dieu_tri: appt?.loai_dieu_tri || 'chua_quyet_dinh',
-      is_admitted: appt?.is_admitted || false,
-      hasPrescription: appt?.hasPrescription || false,
-      hasTestRequest: appt?.hasTestRequest || false,
-     
-      da_thanh_toan: appt?.da_thanh_toan || 0,
-      gioi_tinh: khachHangData.gioi_tinh || 'N/A',
-      ngay_sinh: khachHangData.ngay_sinh || undefined,
-      dia_chi: khachHangData.dia_chi || 'N/A',
-    };
-    setSelectedAppointment(updatedAppointment);
+      const appt = appointments.find((a) => a.id === appointmentId) || null;
+      const updatedAppointment: Appointment = {
+        id: appt?.id || 0, // Đảm bảo id là number, mặc định 0 nếu không có
+        khach_hang_id: appt?.khach_hang_id || 0,
+        ho_ten: appt?.ho_ten || 'N/A',
+        so_dien_thoai: appt?.so_dien_thoai || 'N/A',
+        trieu_chung: appt?.trieu_chung || 'N/A',
+        khoa_id: appt?.khoa_id || 0,
+        khoa_name: appt?.khoa_name || 'N/A',
+        bac_si_id: appt?.bac_si_id || null,
+        status: appt?.status || 0,
+        source: appt?.source || 'N/A',
+        so_bao_hiem_y_te: appt?.so_bao_hiem_y_te || 'N/A',
+        bao_hiem_y_te: appt?.bao_hiem_y_te || null,
+        created_at: appt?.created_at || dayjs().format('YYYY-MM-DD'),
+        ket_qua_kham: appt?.ket_qua_kham || 'Chưa xác định',
+        chuyen_khoa_ghi_chu: appt?.chuyen_khoa_ghi_chu || null,
+        loai_dieu_tri: appt?.loai_dieu_tri || 'chua_quyet_dinh',
+        is_admitted: appt?.is_admitted || false,
+        hasPrescription: appt?.hasPrescription || false,
+        hasTestRequest: appt?.hasTestRequest || false,
 
-    setIsTestRequestsModalVisible(true); // Đảm bảo modal được hiển thị
-  } catch (error: any) {
-    console.error('Lỗi khi lấy danh sách xét nghiệm hoặc thông tin bệnh nhân:', error);
-    message.error(error.response?.data?.message || 'Có lỗi khi tải danh sách xét nghiệm hoặc thông tin bệnh nhân. Vui lòng thử lại.');
-  } finally {
-    setLoading(false);
-  }
-};
+        da_thanh_toan: appt?.da_thanh_toan || 0,
+        gioi_tinh: khachHangData.gioi_tinh || 'N/A',
+        ngay_sinh: khachHangData.ngay_sinh || undefined,
+        dia_chi: khachHangData.dia_chi || 'N/A',
+      };
+      setSelectedAppointment(updatedAppointment);
+
+      setIsTestRequestsModalVisible(true); // Đảm bảo modal được hiển thị
+    } catch (error: any) {
+      console.error('Lỗi khi lấy danh sách xét nghiệm hoặc thông tin bệnh nhân:', error);
+      message.error(error.response?.data?.message || 'Có lỗi khi tải danh sách xét nghiệm hoặc thông tin bệnh nhân. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
   const checkHasPrescription = async (appointmentId: number): Promise<boolean> => {
     try {
       const response = await axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`);
@@ -745,9 +752,10 @@ const fetchTestRequests = async (appointmentId: number) => {
       setSelectedAppointment(updatedAppt);
       setSelectedAppointmentId(appointmentId);
 
-      const [donThuocResponse, costResponse] = await Promise.all([
+      const [donThuocResponse, costResponse, testRequestsResponse] = await Promise.all([
         axios.get(`http://localhost:9999/api/noitru/chi-dinh-thuoc/null?appointment_id=${appointmentId}`),
-        axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`)
+        axios.get(`http://localhost:9999/api/noitru/chi-phi-ngoai-tru/${appointmentId}`),
+        axios.get(`http://localhost:9999/api/dichvu/service-requests/by-appointment?appointment_id=${appointmentId}`),
       ]);
 
       const donThuocData = donThuocResponse.data.data
@@ -757,9 +765,16 @@ const fetchTestRequests = async (appointmentId: number) => {
         : [];
       setDonThuocData(donThuocData);
 
-      const { total_cost: totalCostValue, phi_kham: phiKhamValue } = costResponse.data.data || {};
-      setTotalCost(totalCostValue !== undefined ? totalCostValue : 0);
-      setPhiKham(phiKhamValue !== undefined ? phiKhamValue : 0);
+      const costData: CostData = costResponse.data.data || {};
+      setTotalCost(costData.total_cost !== undefined ? costData.total_cost : 0);
+      setPhiKham(costData.phi_kham !== undefined ? costData.phi_kham : 0);
+      // Tính tong_xet_nghiem (tong_dich_vu) từ total_cost
+      const tongThuoc = costData.tong_thuoc || 0;
+      const tongDichVu = costData.tong_xet_nghiem || 0; // Sử dụng tong_dich_vu từ API
+      setTongDichVu(tongDichVu); // Thêm state cho tong_dich_vu
+
+      const testData = testRequestsResponse.data || [];
+      setTestRequests(Array.isArray(testData) ? testData : [testData]);
 
       setIsDonThuocModalVisible(true);
     } catch (error: any) {
@@ -767,6 +782,7 @@ const fetchTestRequests = async (appointmentId: number) => {
       message.error(error.response?.data?.message || 'Có lỗi khi lấy danh sách đơn thuốc hoặc tổng tiền. Vui lòng thử lại.');
       setTotalCost(null);
       setPhiKham(null);
+      setTongDichVu(null); // Reset nếu có lỗi
     } finally {
       setLoading(false);
     }
@@ -869,72 +885,91 @@ const fetchTestRequests = async (appointmentId: number) => {
     return <Tag color="default">Chưa quyết định</Tag>;
   };
 
-  const generatePDF = () => {
-    if (!selectedAppointment || !donThuocData.length || totalCost === null || phiKham === null) {
-      message.error('Không thể tạo PDF - Thiếu thông tin cần thiết');
-      return;
-    }
+const generatePDF = () => {
+  if (!selectedAppointment || (!donThuocData.length && !testRequests.length) || totalCost === null || phiKham === null || tongDichVu === null) {
+    message.error('Không thể tạo PDF - Thiếu thông tin cần thiết');
+    return;
+  }
 
-    try {
-      setPdfGenerating(true);
-      const khachHangInfo = formatKhachHangInfo(selectedAppointment);
-      const element = document.createElement('div');
-      element.style.cssText = `
-        width: 148mm;
-        min-height: 210mm;
-        padding: 15mm 10mm;
-        font-family: 'Times New Roman', serif;
-        background: white;
-        margin: 0 auto;
-        box-sizing: border-box;
-        line-height: 1.5;
-      `;
+  try {
+    setPdfGenerating(true);
+    const khachHangInfo = formatKhachHangInfo(selectedAppointment);
 
-      element.innerHTML = `
-        <div style="text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
-          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
-            <div style="text-align: center;">
-              <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">BỆNH VIỆN KHOÁI CHÂU</div>
-              <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA ${khoaName}</div>
-            </div>
+    // Tính toán lại giá gốc trước khi giảm giá (30%)
+    const discountPercentage = 0.3; // 30%
+    const finalTotalCost = totalCost; // 350,000 VNĐ (giá sau giảm từ API)
+    const originalTotalCost = finalTotalCost / (1 - discountPercentage); // 500,000 VNĐ
+    const discountAmount = originalTotalCost * discountPercentage; // 150,000 VNĐ
+
+    const element = document.createElement('div');
+    element.style.cssText = `
+      width: 148mm;
+      min-height: auto;
+      padding: 15mm 10mm;
+      font-family: 'Times New Roman', serif;
+      background: white;
+      margin: 0 auto;
+      box-sizing: border-box;
+      line-height: 1.5;
+      overflow: visible;
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+    `;
+
+    element.innerHTML = `
+      <div style="text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+          <div style="text-align: center;">
+            <div style="font-size: 14px; font-weight: bold; text-transform: uppercase;">BỆNH VIỆN KHOÁI CHÂU</div>
+            <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA ${khoaName}</div>
           </div>
-          <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">ĐƠN THUỐC</div>
-          <div style="font-size: 12px; font-style: italic;">(Kèm theo phiếu khám bệnh số: ${selectedAppointment.id || ''})</div>
         </div>
-        <div style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; font-size: 13px;">
-          <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Thông tin bệnh nhân</div>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
-              <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
+        <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">PHIẾU KHÁM BỆNH</div>
+        <div style="font-size: 12px; font-style: italic;">(Phiếu khám bệnh số: ${selectedAppointment.id || ''})</div>
+      </div>
+      <div style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; font-size: 13px;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Thông tin bệnh nhân</div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${khachHangInfo.hoTen}</td>
+            <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${khachHangInfo.gioiTinh}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
+            <td style="padding: 5px 0;"><strong>SĐT:</strong> ${khachHangInfo.soDienThoai}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
+            <td style="padding: 5px 0;"><strong>Ngày khám:</strong> ${dayjs().format('DD/MM/YYYY')}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 5px 0;"><strong>Bảo hiểm y tế:</strong> Có (Giảm 30% chi phí)</td>
+          </tr>
+        </table>
+      </div>
+      ${
+        donThuocData.length > 0
+          ? `
+      <div style="margin-bottom: 15px;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Đơn thuốc điều trị</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd;">
+          <thead>
+            <tr style="background: #f2f2f2;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 8%;">STT</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 32%;">Tên thuốc</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 40%;">Hướng dẫn sử dụng</th>
             </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${khachHangInfo.namSinh}</td>
-              <td style="padding: 5px 0;"><strong>SĐT:</strong> ${khachHangInfo.soDienThoai}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0;"><strong>Địa chỉ:</strong> ${khachHangInfo.diaChi}</td>
-              <td style="padding: 5px 0;"><strong>Ngày khám:</strong> ${dayjs().format('DD/MM/YYYY')}</td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 5px 0;"><strong>Chẩn đoán:</strong> ${khachHangInfo.ket_qua_kham}</td>
-            </tr>
-          </table>
-        </div>
-        <div style="margin-bottom: 15px;">
-          <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Đơn thuốc điều trị</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd;">
-            <thead>
-              <tr style="background: #f2f2f2;">
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 8%;">STT</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 32%;">Tên thuốc</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Đơn vị</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 10%;">Số lượng</th>
-                <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 40%;">Hướng dẫn sử dụng</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${donThuocData.map((thuoc, index) => `
+          </thead>
+          <tbody>
+            ${donThuocData
+              .map(
+                (thuoc, index) => `
                 <tr>
                   <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${index + 1}</td>
                   <td style="border: 1px solid #ddd; padding: 8px;">${thuoc.ten_thuoc}</td>
@@ -945,113 +980,212 @@ const fetchTestRequests = async (appointmentId: number) => {
                     <div><strong>Cách dùng:</strong> ${thuoc.tan_suat}</div>
                   </td>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+          : ''
+      }
+      ${
+        testRequests.length > 0
+          ? `
+      <div style="margin-bottom: 15px;">
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Danh sách xét nghiệm/thăm dò</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd;">
+          <thead>
+            <tr style="background: #f2f2f2;">
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 8%;">STT</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 32%;">Tên xét nghiệm</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 15%;">Loại</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: center; width: 15%;">Ngày chỉ định</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 20%;">Khoa</th>
+              <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 15%;">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${testRequests
+              .map(
+                (request, index) => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${index + 1}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${request.service_name || 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${request.service_type || 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${formatDate(request.created_at) || 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${request.khoa_name || 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${request.status === 'pending' ? 'Chờ xử lý' : request.status || 'N/A'}</td>
+                </tr>
+              `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+          : ''
+      }
+      <div style="margin-bottom: 15px; font-size: 13px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; width: 70%; text-align: right;"><strong>Phí khám bệnh:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${phiKham?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          ${
+            donThuocData.length > 0
+              ? `
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Tiền thuốc:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${(originalTotalCost - phiKham - tongDichVu)?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          `
+              : ''
+          }
+          ${
+            testRequests.length > 0
+              ? `
+          <tr>
+            <td style="padding: 5px 0; text-align: right;"><strong>Chi phí xét nghiệm/thăm dò:</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${tongDichVu?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          `
+              : ''
+          }
+          <tr style="font-weight: bold;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Tổng cộng (giá gốc):</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${originalTotalCost?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          <tr style="color: #ff4d4f;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Giảm giá (bảo hiểm 30%):</strong></td>
+            <td style="padding: 5px 0; text-align: right;">-${discountAmount?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+          <tr style="font-weight: bold; color: #1890ff;">
+            <td style="padding: 5px 0; text-align: right;"><strong>Tổng cộng (sau giảm giá):</strong></td>
+            <td style="padding: 5px 0; text-align: right;">${finalTotalCost?.toLocaleString('vi-VN')} VNĐ</td>
+          </tr>
+        </table>
+      </div>
+      <div style="margin-top: 20px;">
+        ${
+          donThuocData.length > 0
+            ? `
+        <div style="margin-bottom: 15px; font-size: 12px; border: 1px solid #ddd; padding: 10px;">
+          <div style="font-weight: bold; margin-bottom: 5px;">HƯỚNG DẪN SỬ DỤNG THUỐC:</div>
+          <div>- Uống thuốc đúng liều lượng, đúng giờ theo chỉ định của bác sĩ</div>
+          <div>- Không tự ý ngưng thuốc khi chưa hết liệu trình</div>
+          <div>- Tái khám đúng hẹn hoặc khi có dấu hiệu bất thường</div>
         </div>
-        <div style="margin-bottom: 15px; font-size: 13px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 5px 0; width: 70%; text-align: right;"><strong>Phí khám bệnh:</strong></td>
-              <td style="padding: 5px 0; text-align: right;">${phiKham?.toLocaleString('vi-VN')} VNĐ</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0; text-align: right;"><strong>Tiền thuốc:</strong></td>
-              <td style="padding: 5px 0; text-align: right;">${(totalCost - phiKham)?.toLocaleString('vi-VN')} VNĐ</td>
-            </tr>
-            <tr style="font-weight: bold;">
-              <td style="padding: 5px 0; text-align: right;"><strong>Tổng cộng:</strong></td>
-              <td style="padding: 5px 0; text-align: right;">${totalCost?.toLocaleString('vi-VN')} VNĐ</td>
-            </tr>
-          </table>
-        </div>
-        <div style="margin-top: 20px;">
-          <div style="margin-bottom: 15px; font-size: 12px; border: 1px solid #ddd; padding: 10px;">
-            <div style="font-weight: bold; margin-bottom: 5px;">HƯỚNG DẪN SỬ DỤNG THUỐC:</div>
-            <div>- Uống thuốc đúng liều lượng, đúng giờ theo chỉ định của bác sĩ</div>
-            <div>- Không tự ý ngưng thuốc khi chưa hết liệu trình</div>
-            <div>- Tái khám đúng hẹn hoặc khi có dấu hiệu bất thường</div>
+        `
+            : ''
+        }
+        <div style="display: flex; justify-content: space-between; margin-top: 30px;">
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
+            <div style="font-weight: bold;">BỆNH NHÂN</div>
+            <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-            <div style="text-align: center; width: 40%;">
-              <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
-              <div style="font-weight: bold;">BỆNH NHÂN/KHÁCH HÀNG</div>
-              <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
-            </div>
-            <div style="text-align: center; width: 40%;">
-              <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
-              <div style="font-weight: bold;">BÁC SĨ ĐIỀU TRỊ</div>
-              <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
-            </div>
+          <div style="text-align: center; width: 40%;">
+            <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
+            <div style="font-weight: bold;">BÁC SĨ ĐIỀU TRỊ</div>
+            <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
           </div>
         </div>
-        <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
-          <div>BỆNH VIỆN ĐA KHOA TỈNH - Địa chỉ: Số 123, Đường ABC, Thành phố XYZ</div>
-          <div>Điện thoại: 0123.456.789 - Email: info@benhvienexample.com</div>
-          <div style="font-style: italic;">"Chất lượng phục vụ - Tận tâm chăm sóc"</div>
-        </div>
-      `;
+      </div>
+      <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+        <div>BỆNH VIỆN KHOÁI CHÂU - Địa chỉ: Ngã tư Khoái Châu-Hưng Yên</div>
+        <div>Điện thoại: 0123.456.789 - Email: info@benhvienkhoaichau.com</div>
+        <div style="font-style: italic;">"Chất lượng phục vụ - Tận tâm chăm sóc"</div>
+      </div>
+    `;
 
-      document.body.appendChild(element);
+    document.body.appendChild(element);
 
+    setTimeout(() => {
       html2canvas(element, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: 148 * 3.779527559,
-        height: 210 * 3.779527559,
+        height: element.scrollHeight,
+        width: element.scrollWidth,
+        logging: false,
+        imageTimeout: 0,
       }).then((canvas) => {
         const imgData = canvas.toDataURL('image/png', 1.0);
         const imgWidth = 148;
-        const imgHeight = canvas.height * imgWidth / canvas.width;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
         const doc = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
-          format: 'a5'
+          format: [148, Math.max(210, imgHeight + 20)],
         });
 
         doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
 
-        const filename = `DonThuoc_${selectedAppointment.id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
+        const filename = `PhieuKhamBenh_${selectedAppointment.id}_${dayjs().format('YYYYMMDD_HHmmss')}.pdf`;
         doc.save(filename);
 
-        message.success('Đơn thuốc đã được tải xuống thành công');
+        message.success('Phiếu khám bệnh đã được tải xuống thành công');
         document.body.removeChild(element);
       }).catch((error) => {
         console.error('Lỗi khi chụp canvas:', error);
         message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
-        document.body.removeChild(element);
+        if (document.body.contains(element)) {
+          document.body.removeChild(element);
+        }
       });
-    } catch (error) {
-      console.error('Lỗi khi tạo PDF:', error);
-      message.error('Không thể tạo PDF. Vui lòng thử lại.');
-    } finally {
-      setPdfGenerating(false);
+    }, 100);
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
+const generateTestRequestPDF = () => {
+  if (!testRequests.length) {
+    message.error('Không có dữ liệu xét nghiệm/thăm dò để in');
+    return;
+  }
+
+  // Function chuyển đổi giới tính sang tiếng Việt
+  const convertGender = (gender:any) => {
+    if (!gender) return 'N/A';
+    const genderLower = gender.toLowerCase();
+    switch (genderLower) {
+      case 'male':
+      case 'nam':
+        return 'Nam';
+      case 'female':
+      case 'nữ':
+      case 'nu':
+        return 'Nữ';
+      default:
+        return gender; // Trả về giá trị gốc nếu không khớp
     }
   };
-  const generateTestRequestPDF = () => {
-    if (!testRequests.length) {
-      message.error('Không có dữ liệu xét nghiệm/thăm dò để in');
-      return;
-    }
 
-    try {
-      setPdfGenerating(true);
-      const element = document.createElement('div');
-      element.style.cssText = `
+  try {
+    setPdfGenerating(true);
+    const element = document.createElement('div');
+    element.style.cssText = `
       width: 148mm;
-      min-height: 210mm;
+      min-height: auto;
       padding: 15mm 10mm;
       font-family: 'Times New Roman', serif;
       background: white;
       margin: 0 auto;
       box-sizing: border-box;
       line-height: 1.5;
+      overflow: visible;
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
     `;
 
-      element.innerHTML = `
+    element.innerHTML = `
       <div style="text-align: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
         <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
           <div style="text-align: center;">
@@ -1059,7 +1193,7 @@ const fetchTestRequests = async (appointmentId: number) => {
             <div style="font-size: 16px; font-weight: bold; color: #0066cc; margin: 3px 0;">KHOA ${khoaName}</div>
           </div>
         </div>
-        <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">PHIẾU CHỈ ĐỊNH XÉT NGHIỆM/THĂM DÒ</div>
+        <div style="font-size: 18px; font-weight: bold; text-transform: uppercase; color: #cc0033;">PHIẾU CHỈ ĐỊNH XÉT NGHIỆM</div>
         <div style="font-size: 12px; font-style: italic;">(Kèm theo phiếu khám bệnh số: ${testRequests[0]?.appointment_id || ''})</div>
       </div>
       <div style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; font-size: 13px;">
@@ -1067,7 +1201,7 @@ const fetchTestRequests = async (appointmentId: number) => {
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 5px 0; width: 50%;"><strong>Họ và tên:</strong> ${selectedAppointment?.ho_ten || 'N/A'}</td>
-            <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${selectedAppointment?.gioi_tinh || 'N/A'}</td>
+            <td style="padding: 5px 0;"><strong>Giới tính:</strong> ${convertGender(selectedAppointment?.gioi_tinh)}</td>
           </tr>
           <tr>
             <td style="padding: 5px 0;"><strong>Năm sinh:</strong> ${selectedAppointment?.ngay_sinh ? dayjs(selectedAppointment.ngay_sinh).format('YYYY') : 'N/A'}</td>
@@ -1083,7 +1217,7 @@ const fetchTestRequests = async (appointmentId: number) => {
         </table>
       </div>
       <div style="margin-bottom: 15px;">
-        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Danh sách xét nghiệm/thăm dò</div>
+        <div style="text-align: center; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px;">Danh sách xét nghiệm</div>
         <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #ddd;">
           <thead>
             <tr style="background: #f2f2f2;">
@@ -1113,7 +1247,7 @@ const fetchTestRequests = async (appointmentId: number) => {
         <div style="display: flex; justify-content: space-between; margin-top: 30px;">
           <div style="text-align: center; width: 40%;">
             <div style="font-style: italic; margin-bottom: 30px;">Ngày ${dayjs().format('DD')} tháng ${dayjs().format('MM')} năm ${dayjs().format('YYYY')}</div>
-            <div style="font-weight: bold;">BỆNH NHÂN/KHÁCH HÀNG</div>
+            <div style="font-weight: bold;">NGƯỜI THÂN</div>
             <div style="font-style: italic;">(Ký, ghi rõ họ tên)</div>
           </div>
           <div style="text-align: center; width: 40%;">
@@ -1124,30 +1258,35 @@ const fetchTestRequests = async (appointmentId: number) => {
         </div>
       </div>
       <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
-        <div>BỆNH VIỆN ĐA KHOA TỈNH - Địa chỉ: Số 123, Đường ABC, Thành phố XYZ</div>
-        <div>Điện thoại: 0123.456.789 - Email: info@benhvienexample.com</div>
+        <div>BỆNH VIỆN KHOÁI CHÂU - Địa chỉ: Ngã tư Khoái Châu-Hưng Yên</div>
+        <div>Điện thoại: 0123.456.789 - Email: info@benhvienkhoaichau.com</div>
         <div style="font-style: italic;">"Chất lượng phục vụ - Tận tâm chăm sóc"</div>
       </div>
     `;
 
-      document.body.appendChild(element);
+    document.body.appendChild(element);
 
+    // Đợi một chút để DOM render hoàn toàn
+    setTimeout(() => {
       html2canvas(element, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: 148 * 3.779527559,
-        height: 210 * 3.779527559,
+        height: element.scrollHeight,
+        width: element.scrollWidth,
+        logging: false,
+        imageTimeout: 0,
       }).then((canvas) => {
         const imgData = canvas.toDataURL('image/png', 1.0);
         const imgWidth = 148;
-        const imgHeight = canvas.height * imgWidth / canvas.width;
-
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        // Tạo PDF với kích thước tùy chỉnh để chứa toàn bộ nội dung
         const doc = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
-          format: 'a5'
+          format: [148, Math.max(210, imgHeight + 20)] // Đảm bảo đủ chiều cao
         });
 
         doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
@@ -1160,15 +1299,19 @@ const fetchTestRequests = async (appointmentId: number) => {
       }).catch((error) => {
         console.error('Lỗi khi chụp canvas:', error);
         message.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
-        document.body.removeChild(element);
+        if (document.body.contains(element)) {
+          document.body.removeChild(element);
+        }
       });
-    } catch (error) {
-      console.error('Lỗi khi tạo PDF:', error);
-      message.error('Không thể tạo PDF. Vui lòng thử lại.');
-    } finally {
-      setPdfGenerating(false);
-    }
-  };
+    }, 100);
+    
+  } catch (error) {
+    console.error('Lỗi khi tạo PDF:', error);
+    message.error('Không thể tạo PDF. Vui lòng thử lại.');
+  } finally {
+    setPdfGenerating(false);
+  }
+};
   const columns = [
     { title: 'Mã', dataIndex: 'id', key: 'id', width: 80 },
     {
@@ -1261,119 +1404,142 @@ const fetchTestRequests = async (appointmentId: number) => {
         );
       },
     },
-    {
-      title: 'Hành động',
-      key: 'action',
-      width: 220,
-      render: (_: any, record: Appointment) => (
-        <Space size="small" wrap style={{ margin: 0, padding: 2 }}>
-          {record.status === 0 && record.bac_si_id === null && (
-            <Tooltip title="Nhận lịch">
+{
+  title: 'Hành động',
+  key: 'action',
+  width: 220,
+  render: (_: any, record: Appointment) => (
+    <Space size="small" wrap style={{ margin: 0, padding: 2 }}>
+      {record.status === 0 && record.bac_si_id === null && (
+        <>
+          <Tooltip title="Nhận lịch">
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              size="small"
+              style={{ padding: 4 }}
+              onClick={() => handleNhanLich(record.id)}
+            />
+          </Tooltip>
+          
+          {/* Nút chỉ định xét nghiệm cho trường hợp đặc biệt */}
+          {!record.hasTestRequest && (
+            <Tooltip title="Chỉ định xét nghiệm/thăm dò">
               <Button
-                type="primary"
-                icon={<CheckCircleOutlined />}
+                type="default"
+                icon={<ExperimentOutlined />}
                 size="small"
                 style={{ padding: 4 }}
-                onClick={() => handleNhanLich(record.id)}
+                onClick={() => showChiDinhXetNghiemModal(record.id)}
               />
             </Tooltip>
           )}
-          {record.status === 1 && record.bac_si_id === bacSiId && (
-            <>
-              {!record.ket_qua_kham && (
-                <Tooltip title="Kết luận">
-                  <Button
-                    type="default"
-                    icon={<FileTextOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
-                  />
-                </Tooltip>
-              )}
-              {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
-                <Tooltip title="Phân loại">
-                  <Button
-                    type="default"
-                    icon={<SolutionOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showPhanLoaiModal(record.id)}
-                  />
-                </Tooltip>
-              )}
-              {record.ket_qua_kham && !record.hasTestRequest && (
-                <Tooltip title="Chỉ định xét nghiệm/thăm dò">
-                  <Button
-                    type="default"
-                    icon={<ExperimentOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showChiDinhXetNghiemModal(record.id)}
-                  />
-                </Tooltip>
-              )}
-              {record.ket_qua_kham && record.hasTestRequest && (
-                <Tooltip title="Xem các xét nghiệm đã chỉ định">
-                  <Button
-                    type="default"
-                    icon={<FileSearchOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => fetchTestRequests(record.id)}
-                  />
-                </Tooltip>
-              )}
-              {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
-                <Tooltip title="Kê đơn thuốc">
-                  <Button
-                    type="default"
-                    icon={<PlusCircleOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showChiDinhThuocModal(record.id)}
-                  />
-                </Tooltip>
-              )}
-              {record.loai_dieu_tri === 'ngoai_tru' && record.hasPrescription && (
-                <Tooltip title="Xem các thuốc đã kê">
-                  <Button
-                    type="default"
-                    icon={<FileSearchOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showDonThuocModal(record.id)}
-                  />
-                </Tooltip>
-              )}
-              {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
-                <Tooltip title="Xếp giường">
-                  <Button
-                    type="default"
-                    icon={<MedicineBoxOutlined />}
-                    size="small"
-                    style={{ padding: 4 }}
-                    onClick={() => showXepGiuongModal(record.id)}
-                  />
-                </Tooltip>
-              )}
-              <Tooltip title="Chuyển khoa">
-                <Button
-                  type="default"
-                  icon={<SwapOutlined />}
-                  size="small"
-                  style={{ padding: 4 }}
-                  onClick={() => showChuyenKhoaModal(record.id)}
-                />
-              </Tooltip>
-            </>
+        </>
+      )}
+      
+      {record.status === 1 && record.bac_si_id === bacSiId && (
+        <>
+          {!record.ket_qua_kham && (
+            <Tooltip title="Kết luận">
+              <Button
+                type="default"
+                icon={<FileTextOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showKetLuanModal(record.id, record.ket_qua_kham)}
+              />
+            </Tooltip>
           )}
-        </Space>
-      ),
-    },
+          
+          {record.ket_qua_kham && record.loai_dieu_tri === 'chua_quyet_dinh' && (
+            <Tooltip title="Phân loại">
+              <Button
+                type="default"
+                icon={<SolutionOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showPhanLoaiModal(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          {!record.hasTestRequest && (
+            <Tooltip title="Chỉ định xét nghiệm/thăm dò">
+              <Button
+                type="default"
+                icon={<ExperimentOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showChiDinhXetNghiemModal(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          {record.ket_qua_kham && record.hasTestRequest && (
+            <Tooltip title="Xem các xét nghiệm đã chỉ định">
+              <Button
+                type="default"
+                icon={<FileSearchOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => fetchTestRequests(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          {record.loai_dieu_tri === 'ngoai_tru' && !record.hasPrescription && (
+            <Tooltip title="Kê đơn thuốc">
+              <Button
+                type="default"
+                icon={<PlusCircleOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showChiDinhThuocModal(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          {record.loai_dieu_tri === 'ngoai_tru' && record.hasPrescription && (
+            <Tooltip title="Xem các thuốc đã kê">
+              <Button
+                type="default"
+                icon={<FileSearchOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showDonThuocModal(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          {record.loai_dieu_tri === 'noi_tru' && !record.is_admitted && (
+            <Tooltip title="Xếp giường">
+              <Button
+                type="default"
+                icon={<MedicineBoxOutlined />}
+                size="small"
+                style={{ padding: 4 }}
+                onClick={() => showXepGiuongModal(record.id)}
+              />
+            </Tooltip>
+          )}
+          
+          <Tooltip title="Chuyển khoa">
+            <Button
+              type="default"
+              icon={<SwapOutlined />}
+              size="small"
+              style={{ padding: 4 }}
+              onClick={() => showChuyenKhoaModal(record.id)}
+            />
+          </Tooltip>
+        </>
+      )}
+    </Space>
+  ),
+},
   ];
 
-  const DonThuocModal = (
+const DonThuocModal = (
     <Modal
       title={
         <Space>
@@ -1386,6 +1552,7 @@ const fetchTestRequests = async (appointmentId: number) => {
         setIsDonThuocModalVisible(false);
         setTotalCost(null);
         setPhiKham(null);
+        setTongDichVu(null);
       }}
       footer={[
         <Button
@@ -1394,6 +1561,7 @@ const fetchTestRequests = async (appointmentId: number) => {
             setIsDonThuocModalVisible(false);
             setTotalCost(null);
             setPhiKham(null);
+            setTongDichVu(null);
           }}
         >
           Đóng
@@ -1407,27 +1575,59 @@ const fetchTestRequests = async (appointmentId: number) => {
           In PDF
         </Button>,
       ]}
-      width={800}
+      width={1000} // Tăng width để hiển thị thêm bảng xét nghiệm
     >
       <Spin spinning={loading}>
-        {donThuocData.length === 0 ? (
-          <Empty description="Không có đơn thuốc nào" />
+        {donThuocData.length === 0 && testRequests.length === 0 ? (
+          <Empty description="Không có đơn thuốc hoặc xét nghiệm nào" />
         ) : (
           <>
-            <Table
-              columns={[
-                { title: 'Tên thuốc', dataIndex: 'ten_thuoc', key: 'ten_thuoc' },
-                { title: 'Đơn vị', dataIndex: 'don_vi', key: 'don_vi' },
-                { title: 'Số lượng', dataIndex: 'so_luong', key: 'so_luong' },
-                { title: 'Liều lượng', dataIndex: 'lieu_luong', key: 'lieu_luong' },
-                { title: 'Tần suất', dataIndex: 'tan_suat', key: 'tan_suat' },
-                { title: 'Ngày chỉ định', dataIndex: 'ngay_chi_dinh', key: 'ngay_chi_dinh' },
-                { title: 'Người chỉ định', dataIndex: 'nguoi_chi_dinh', key: 'nguoi_chi_dinh' },
-              ]}
-              dataSource={donThuocData}
-              rowKey="id"
-              pagination={false}
-            />
+            {/* Bảng hiển thị thuốc đã kê */}
+            {donThuocData.length > 0 && (
+              <>
+                <Title level={4}>Danh sách thuốc đã kê</Title>
+                <Table
+                  columns={[
+                    { title: 'Tên thuốc', dataIndex: 'ten_thuoc', key: 'ten_thuoc' },
+                    { title: 'Đơn vị', dataIndex: 'don_vi', key: 'don_vi' },
+                    { title: 'Số lượng', dataIndex: 'so_luong', key: 'so_luong' },
+                    { title: 'Liều lượng', dataIndex: 'lieu_luong', key: 'lieu_luong' },
+                    { title: 'Tần suất', dataIndex: 'tan_suat', key: 'tan_suat' },
+                    { title: 'Ngày chỉ định', dataIndex: 'ngay_chi_dinh', key: 'ngay_chi_dinh' },
+                    { title: 'Người chỉ định', dataIndex: 'nguoi_chi_dinh', key: 'nguoi_chi_dinh' },
+                  ]}
+                  dataSource={donThuocData}
+                  rowKey="id"
+                  pagination={false}
+                  style={{ marginBottom: 16 }}
+                />
+              </>
+            )}
+
+            {/* Bảng hiển thị xét nghiệm đã chỉ định */}
+            {testRequests.length > 0 && (
+              <>
+                <Title level={4}>Danh sách xét nghiệm/thăm dò đã chỉ định</Title>
+                <Table
+                  columns={[
+                    { title: 'Tên xét nghiệm', dataIndex: 'service_name', key: 'service_name' },
+                    { title: 'Loại', dataIndex: 'service_type', key: 'service_type' },
+                    { title: 'Ngày chỉ định', dataIndex: 'created_at', key: 'created_at', render: (date: string) => formatDate(date) || 'N/A' },
+                    { title: 'Khoa', dataIndex: 'khoa_name', key: 'khoa_name' },
+                    { title: 'Người chỉ định', dataIndex: 'bac_si_name', key: 'bac_si_name' },
+                    { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status: string) => (
+                      <Tag color={status === 'pending' ? 'orange' : 'green'}>{status === 'pending' ? 'Chờ xử lý' : status}</Tag>
+                    )},
+                  ]}
+                  dataSource={testRequests}
+                  rowKey="id"
+                  pagination={false}
+                  style={{ marginBottom: 16 }}
+                />
+              </>
+            )}
+
+            {/* Thống kê chi phí */}
             <div style={{ marginTop: 16, textAlign: 'right' }}>
               <Row gutter={16} justify="end">
                 <Col>
@@ -1440,6 +1640,18 @@ const fetchTestRequests = async (appointmentId: number) => {
                     />
                   ) : (
                     <Text type="danger">Không thể tải phí khám. Vui lòng thử lại.</Text>
+                  )}
+                </Col>
+                <Col>
+                  {tongDichVu !== null ? (
+                    <Statistic
+                      title="Chi phí xét nghiệm/thăm dò"
+                      value={tongDichVu}
+                      suffix="VNĐ"
+                      valueStyle={{ color: '#ff4d4f', fontSize: '20px' }} // Màu đỏ để phân biệt
+                    />
+                  ) : (
+                    <Text type="danger">Không thể tải chi phí xét nghiệm. Vui lòng thử lại.</Text>
                   )}
                 </Col>
                 <Col>
@@ -1522,7 +1734,7 @@ const fetchTestRequests = async (appointmentId: number) => {
                 key: 'bac_si_name',
                 render: (text: string) => text || 'N/A'
               },
-               {
+              {
                 title: 'Kết quả',
                 dataIndex: 'result_text',
                 key: 'result_text',
@@ -1699,84 +1911,86 @@ const fetchTestRequests = async (appointmentId: number) => {
           {(fields, { add, remove }) => (
             <>
               {fields.map((field) => (
-                <div key={field.key} style={{ marginBottom: 24, padding: '16px', border: '1px solid #f0f0f0', borderRadius: '8px' }}>
-                  <Row gutter={[24, 16]} align="middle">
-                    <Col span={6}>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'kho_id']}
-                        fieldKey={[field.fieldKey || 0, 'kho_id']}
-                        label="Tên thuốc"
-                        rules={[{ required: true, message: 'Vui lòng chọn thuốc!' }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Select placeholder="Chọn thuốc" size="large">
-                          {khoList.map((kho) => (
-                            <Option key={kho.kho_id} value={kho.kho_id}>
-                              {kho.ten_san_pham} ({kho.don_vi_tinh})
-                            </Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={4}>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'so_luong']}
-                        fieldKey={[field.fieldKey || 0, 'so_luong']}
-                        label="Số lượng"
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập số lượng!' },
-                          { type: 'number', min: 1, message: 'Số lượng phải lớn hơn 0!' },
-                        ]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <InputNumber
-                          placeholder="Số lượng"
-                          size="large"
-                          min={1}
-                          style={{ width: '100%' }}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'lieu_luong']}
-                        fieldKey={[field.fieldKey || 0, 'lieu_luong']}
-                        label="Liều lượng"
-                        rules={[{ required: true, message: 'Vui lòng nhập liều lượng!' }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input placeholder="Ví dụ: 1 viên" size="large" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'tan_suat']}
-                        fieldKey={[field.fieldKey || 0, 'tan_suat']}
-                        label="Tần suất"
-                        rules={[{ required: true, message: 'Vui lòng nhập tần suất!' }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input placeholder="Ví dụ: 2 lần/ngày" size="large" />
-                      </Form.Item>
-                    </Col>
-                    <Col span={2} style={{ textAlign: 'center' }}>
-                      <Button
-                        type="link"
-                        danger
-                        onClick={() => remove(field.name)}
-                        icon={<DeleteOutlined />}
-                        style={{ marginTop: 24 }}
-                      >
-                        Xóa
-                      </Button>
-                    </Col>
-                  </Row>
-                </div>
-              ))}
+                           <div key={field.key} style={{ marginBottom: 24, padding: '16px', border: '1px solid #f0f0f0', borderRadius: '8px' }}>
+                             <Row gutter={[24, 16]} align="middle">
+                               <Col span={6}>
+                                 <Form.Item
+                                   {...field}
+                                   name={[field.name, 'kho_id']}
+                                   fieldKey={[field.fieldKey || 0, 'kho_id']}
+                                   label="Chọn thuốc"
+                                   rules={[{ required: true, message: 'Vui lòng chọn thuốc!' }]}
+                                   style={{ marginBottom: 0, marginRight: '16px' }}
+                                 >
+                                   <Select placeholder="Chọn thuốc từ kho" size="large" disabled={!khoList.length}>
+                                     {Array.isArray(khoList) && khoList.length > 0 ? (
+                                       khoList.map((kho) => (
+                                         <Option key={kho.kho_id} value={kho.kho_id}>
+                                           {kho.ten_san_pham} ({kho.don_vi_tinh}) 
+                                         </Option>
+                                       ))
+                                     ) : (
+                                       <Option disabled value={null}>
+                                         Không có thuốc khả dụng
+                                       </Option>
+                                     )}
+                                   </Select>
+                                 </Form.Item>
+                               </Col>
+                               <Col span={4}>
+                                 <Form.Item
+                                   {...field}
+                                   name={[field.name, 'so_luong']}
+                                   fieldKey={[field.fieldKey || 0, 'so_luong']}
+                                   label="Số lượng"
+                                   rules={[
+                                     { required: true, message: 'Vui lòng nhập số lượng!' },
+                                     { type: 'number', min: 1, message: 'Số lượng phải lớn hơn 0!' },
+                                   ]}
+                                   normalize={(value) => (value ? Number(value) : value)}
+                                   style={{ marginBottom: 0, marginRight: '16px' }}
+                                 >
+                                   <Input type="number" placeholder="Nhập số lượng" size="large" />
+                                 </Form.Item>
+                               </Col>
+                               <Col span={5}>
+                                 <Form.Item
+                                   {...field}
+                                   name={[field.name, 'lieu_luong']}
+                                   fieldKey={[field.fieldKey || 0, 'lieu_luong']}
+                                   label="Liều lượng"
+                                   rules={[{ required: true, message: 'Vui lòng nhập liều lượng!' }]}
+                                   style={{ marginBottom: 0, marginRight: '16px' }}
+                                 >
+                                   <Input placeholder="Nhập liều lượng" size="large" />
+                                 </Form.Item>
+                               </Col>
+                               <Col span={5}>
+                                 <Form.Item
+                                   {...field}
+                                   name={[field.name, 'tan_suat']}
+                                   fieldKey={[field.fieldKey || 0, 'tan_suat']}
+                                   label="Tần suất"
+                                   rules={[{ required: true, message: 'Vui lòng nhập tần suất!' }]}
+                                   style={{ marginBottom: 0, marginRight: '16px' }}
+                                 >
+                                   <Input placeholder="Nhập tần suất" size="large" />
+                                 </Form.Item>
+                               </Col>
+                               <Col span={4} style={{ textAlign: 'center' }}>
+                                 <Button
+                                   type="link"
+                                   danger
+                                   onClick={() => remove(field.name)}
+                                   icon={<DeleteOutlined />}
+                                   style={{ marginTop: 24 }}
+                                 >
+                                   Xóa
+                                 </Button>
+                               </Col>
+                             </Row>
+                           </div>
+                         ))}
               <Form.Item>
                 <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />} size="large">
                   Thêm thuốc
